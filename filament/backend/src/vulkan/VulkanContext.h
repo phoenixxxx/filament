@@ -120,7 +120,7 @@ public:
     }
 
     inline bool isImageCubeArraySupported() const noexcept {
-        return mPhysicalDeviceFeatures.imageCubeArray == VK_TRUE;
+        return mPhysicalDeviceFeatures.features.imageCubeArray == VK_TRUE;
     }
 
     inline bool isDebugMarkersSupported() const noexcept {
@@ -132,15 +132,22 @@ public:
     }
 
     inline bool isClipDistanceSupported() const noexcept {
-        return mPhysicalDeviceFeatures.shaderClipDistance == VK_TRUE;
+        return mPhysicalDeviceFeatures.features.shaderClipDistance == VK_TRUE;
+    }
+
+    inline bool isProtectedMemorySupported() const noexcept {
+        return mProtectedMemorySupported;
     }
 
 private:
     VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
     VkPhysicalDeviceProperties mPhysicalDeviceProperties = {};
-    VkPhysicalDeviceFeatures mPhysicalDeviceFeatures = {};
+    VkPhysicalDeviceFeatures2 mPhysicalDeviceFeatures = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+    };
     bool mDebugMarkersSupported = false;
     bool mDebugUtilsSupported = false;
+    bool mProtectedMemorySupported = false;
 
     VkFormatList mDepthStencilFormats;
     VkFormatList mBlittableDepthStencilFormats;

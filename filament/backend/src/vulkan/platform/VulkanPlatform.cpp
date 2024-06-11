@@ -52,6 +52,12 @@ inline bool setContains(ExtensionSet const& set, utils::CString const& extension
     return set.find(extension) != set.end();
 };
 
+template <typename T, typename U>
+inline void chainNext(T& base, U& next) {
+    next.pNext = base.pNext;
+    base.pNext = &next;
+}
+
 #if FVK_ENABLED(FVK_DEBUG_VALIDATION)
 // These strings need to be allocated outside a function stack
 const std::string_view DESIRED_LAYERS[] = {
@@ -287,8 +293,8 @@ VkInstance createInstance(ExtensionSet const& requiredExts) {
 }
 
 VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
-        VkPhysicalDeviceFeatures const& features, uint32_t graphicsQueueFamilyIndex,
-        ExtensionSet const& deviceExtensions) {
+        VkPhysicalDeviceFeatures2 const& features, uint32_t graphicsQueueFamilyIndex,
+        ExtensionSet const& deviceExtensions, bool protectedMemorySupported) {
     VkDevice device;
     VkDeviceQueueCreateInfo deviceQueueCreateInfo[1] = {};
     const float queuePriority[] = {1.0f};
@@ -311,14 +317,18 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
 
     // We could simply enable all supported features, but since that may have performance
     // consequences let's just enable the features we need.
-    VkPhysicalDeviceFeatures enabledFeatures{
-            .samplerAnisotropy = features.samplerAnisotropy,
-            .textureCompressionETC2 = features.textureCompressionETC2,
-            .textureCompressionBC = features.textureCompressionBC,
-            .shaderClipDistance = features.shaderClipDistance,
+    VkPhysicalDeviceFeatures2 enabledFeatures{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+        .pNext = nullptr,
+        .features = {
+            .samplerAnisotropy = features.features.samplerAnisotropy,
+            .textureCompressionETC2 = features.features.textureCompressionETC2,
+            .textureCompressionBC = features.features.textureCompressionBC,
+            .shaderClipDistance = features.features.shaderClipDistance,
+        }
     };
 
-    deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
+    deviceCreateInfo.pEnabledFeatures = nullptr;
     deviceCreateInfo.enabledExtensionCount = (uint32_t) requestExtensions.size();
     deviceCreateInfo.ppEnabledExtensionNames = requestExtensions.data();
 
@@ -331,6 +341,17 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
     if (setContains(deviceExtensions, VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME)) {
         deviceCreateInfo.pNext = &portability;
     }
+
+    // Enable protected memory, if requested.
+    VkPhysicalDeviceProtectedMemoryFeatures set_protected_memory_features = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+    };
+
+    if (protectedMemorySupported) {
+        set_protected_memory_features.protectedMemory = VK_TRUE;
+        chainNext(enabledFeatures, set_protected_memory_features);
+    }
+    deviceCreateInfo.pNext = &enabledFeatures;
 
     VkResult result = vkCreateDevice(physicalDevice, &deviceCreateInfo, VKALLOC, &device);
     FILAMENT_CHECK_POSTCONDITION(result == VK_SUCCESS) << "vkCreateDevice error=" << result << ".";
@@ -656,10 +677,15 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
 
     printDeviceInfo(mImpl->mInstance, mImpl->mPhysicalDevice);
 
+    VkPhysicalDeviceProtectedMemoryFeatures queryProtectedMemoryFeatures = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+    };
+    chainNext(context.mPhysicalDeviceFeatures, queryProtectedMemoryFeatures);
+
     // Initialize the following fields: physicalDeviceProperties, memoryProperties,
     // physicalDeviceFeatures, graphicsQueueFamilyIndex.
     vkGetPhysicalDeviceProperties(mImpl->mPhysicalDevice, &context.mPhysicalDeviceProperties);
-    vkGetPhysicalDeviceFeatures(mImpl->mPhysicalDevice, &context.mPhysicalDeviceFeatures);
+    vkGetPhysicalDeviceFeatures2(mImpl->mPhysicalDevice, &context.mPhysicalDeviceFeatures);
     vkGetPhysicalDeviceMemoryProperties(mImpl->mPhysicalDevice, &context.mMemoryProperties);
 
     mImpl->mGraphicsQueueFamilyIndex
@@ -669,9 +695,9 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     assert_invariant(mImpl->mGraphicsQueueFamilyIndex != INVALID_VK_INDEX);
 
     // Only enable shaderClipDistance if we are doing instanced stereoscopic rendering.
-    if (context.mPhysicalDeviceFeatures.shaderClipDistance == VK_TRUE
+    if (context.mPhysicalDeviceFeatures.features.shaderClipDistance == VK_TRUE
             && driverConfig.stereoscopicType != StereoscopicType::INSTANCED) {
-        context.mPhysicalDeviceFeatures.shaderClipDistance = VK_FALSE;
+        context.mPhysicalDeviceFeatures.features.shaderClipDistance = VK_FALSE;
     }
 
     // At this point, we should have a family index that points to a family that has > 0 queues for
@@ -691,9 +717,10 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
         deviceExts = prunedDeviceExts;
     }
 
+    bool protectedMemorySupported = static_cast<bool>(queryProtectedMemoryFeatures.protectedMemory);
     mImpl->mDevice
             = mImpl->mDevice == VK_NULL_HANDLE ? createLogicalDevice(mImpl->mPhysicalDevice,
-                      context.mPhysicalDeviceFeatures, mImpl->mGraphicsQueueFamilyIndex, deviceExts)
+                      context.mPhysicalDeviceFeatures, mImpl->mGraphicsQueueFamilyIndex, deviceExts, protectedMemorySupported)
                                                : mImpl->mDevice;
     assert_invariant(mImpl->mDevice != VK_NULL_HANDLE);
 
@@ -704,6 +731,7 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     // Store the extension support in the context
     context.mDebugUtilsSupported = setContains(instExts, VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     context.mDebugMarkersSupported = setContains(deviceExts, VK_EXT_DEBUG_MARKER_EXTENSION_NAME);
+    context.mProtectedMemorySupported = protectedMemorySupported;
 
 #ifdef NDEBUG
     // If we are in release build, we should not have turned on debug extensions
