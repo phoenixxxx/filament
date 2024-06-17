@@ -220,6 +220,14 @@ public:
     virtual void terminate();
 
     /**
+     * Return whether protected memory is supported by this backend.
+     * If protected memory is supported, the SWAP_CHAIN_CONFIG_PROTECTED_CONTENT flag can be
+     * used when creating a SwapChain.
+     * The default implementation returns false.
+     */
+    virtual bool isProtectedMemorySupported() const noexcept;
+
+    /**
      * @return The instance (VkInstance) for the Vulkan backend.
      */
     VkInstance getInstance() const noexcept;
@@ -249,6 +257,23 @@ public:
      * @return The queue that was selected for the Vulkan backend.
      */
     VkQueue getGraphicsQueue() const noexcept;
+
+    /**
+    * @return The family index of the protected graphics queue selected for the
+    *          Vulkan backend.
+    */
+    uint32_t getProtectedGraphicsQueueFamilyIndex() const noexcept;
+
+    /**
+     * @return The index of the protected graphics queue (if there are multiple
+     *          graphics queues) selected for the Vulkan backend.
+     */
+    uint32_t getProtectedGraphicsQueueIndex() const noexcept;
+
+    /**
+     * @return The protected queue that was selected for the Vulkan backend.
+     */
+    VkQueue getProtectedGraphicsQueue() const noexcept;
 
 private:
     static ExtensionSet getSwapchainInstanceExtensions();

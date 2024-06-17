@@ -139,6 +139,7 @@ public:
         return mProtectedMemorySupported;
     }
 
+
 private:
     VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
     VkPhysicalDeviceProperties mPhysicalDeviceProperties = {};
