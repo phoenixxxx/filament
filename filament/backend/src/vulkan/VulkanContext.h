@@ -131,6 +131,10 @@ public:
         return mDebugUtilsSupported;
     }
 
+    inline bool isMultiviewEnabled() const noexcept {
+        return mMultiviewEnabled;
+    }
+
     inline bool isClipDistanceSupported() const noexcept {
         return mPhysicalDeviceFeatures.features.shaderClipDistance == VK_TRUE;
     }
@@ -148,6 +152,7 @@ private:
     };
     bool mDebugMarkersSupported = false;
     bool mDebugUtilsSupported = false;
+    bool mMultiviewEnabled = false;
     bool mProtectedMemorySupported = false;
 
     VkFormatList mDepthStencilFormats;
