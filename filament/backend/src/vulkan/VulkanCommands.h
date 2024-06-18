@@ -151,12 +151,17 @@ public:
 class VulkanCommands {
 public:
     VulkanCommands(VkDevice device, VkQueue queue, uint32_t queueFamilyIndex,
-            VulkanContext* context, VulkanResourceAllocator* allocator);
+                   VkQueue protectedQueue, uint32_t protectedQueueFamilyIndex, 
+                   VulkanContext* context, VulkanResourceAllocator* allocator);
 
     void terminate();
 
     // Creates a "current" command buffer if none exists, otherwise returns the current one.
     VulkanCommandBuffer& get();
+
+    // Creates a "current" protected capable command buffer if none exists, otherwise 
+    // returns the current one.
+    VulkanCommandBuffer& getProtected();
 
     // Submits the current command buffer if it exists, then sets "current" to null.
     // If there are no outstanding commands then nothing happens and this returns false.
@@ -196,9 +201,15 @@ public:
 
 private:
     static constexpr int CAPACITY = FVK_MAX_COMMAND_BUFFERS;
+    static constexpr int CAPACITY_PROTECTED = CAPACITY + 1;
     VkDevice const mDevice;
     VkQueue const mQueue;
     VkCommandPool const mPool;
+    VkQueue const mProtectedQueue;
+    VkCommandPool mProtectedPool;
+    // For defered initialization if/when we need protected content
+    uint32_t mProtectedQueueFamilyIndex;
+    VulkanResourceAllocator* mAllocator;
     VulkanContext const* mContext;
 
     // int8 only goes up to 127, therefore capacity must be less than that.
@@ -207,6 +218,8 @@ private:
     VkSemaphore mSubmissionSignal = {};
     VkSemaphore mInjectedSignal = {};
     utils::FixedCapacityVector<std::unique_ptr<VulkanCommandBuffer>> mStorage;
+    std::unique_ptr<VulkanCommandBuffer> mProtectedCommandBuffer;
+    VkFence mProtectedSubmission;
     VkFence mFences[CAPACITY] = {};
     VkSemaphore mSubmissionSignals[CAPACITY] = {};
     uint8_t mAvailableBufferCount = CAPACITY;

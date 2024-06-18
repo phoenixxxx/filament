@@ -64,13 +64,16 @@ VulkanCommandBuffer::VulkanCommandBuffer(VulkanResourceAllocator* allocator, VkD
 
 CommandBufferObserver::~CommandBufferObserver() {}
 
-static VkCommandPool createPool(VkDevice device, uint32_t queueFamilyIndex) {
+static VkCommandPool createPool(VkDevice device, uint32_t queueFamilyIndex, bool isProtected = false) {
     VkCommandPoolCreateInfo createInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
             .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT
                      | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
             .queueFamilyIndex = queueFamilyIndex,
     };
+    if (isProtected) {
+        createInfo.flags |= VK_COMMAND_POOL_CREATE_PROTECTED_BIT;
+    }
     VkCommandPool pool;
     vkCreateCommandPool(device, &createInfo, VKALLOC, &pool);
     return pool;
@@ -131,12 +134,19 @@ bool VulkanGroupMarkers::empty() const noexcept {
 #endif // FVK_DEBUG_GROUP_MARKERS
 
 VulkanCommands::VulkanCommands(VkDevice device, VkQueue queue, uint32_t queueFamilyIndex,
+        VkQueue protectedQueue, uint32_t protectedQueueFamilyIndex,
         VulkanContext* context, VulkanResourceAllocator* allocator)
     : mDevice(device),
       mQueue(queue),
       mPool(createPool(mDevice, queueFamilyIndex)),
+      mProtectedQueue(protectedQueue),
+      mProtectedPool(VK_NULL_HANDLE),
+      mProtectedQueueFamilyIndex(protectedQueueFamilyIndex),
+      mAllocator(allocator),
       mContext(context),
-      mStorage(CAPACITY) {
+      mStorage(CAPACITY),
+      mProtectedCommandBuffer(nullptr),
+      mProtectedSubmission(nullptr) {
     VkSemaphoreCreateInfo sci{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
     for (auto& semaphore: mSubmissionSignals) {
         vkCreateSemaphore(mDevice, &sci, nullptr, &semaphore);
@@ -160,6 +170,11 @@ void VulkanCommands::terminate() {
     wait();
     gc();
     vkDestroyCommandPool(mDevice, mPool, VKALLOC);
+
+    if (mProtectedPool == VK_NULL_HANDLE) {
+        vkDestroyCommandPool(mDevice, mProtectedPool, VKALLOC);
+    }
+
     for (VkSemaphore sema: mSubmissionSignals) {
         vkDestroySemaphore(mDevice, sema, VKALLOC);
     }
@@ -226,6 +241,22 @@ VulkanCommandBuffer& VulkanCommands::get() {
     }
 #endif
     return *currentbuf;
+}
+
+VulkanCommandBuffer& VulkanCommands::getProtected() {
+    // We shouldn't be in here if there is no, and we return a reference
+    // so we cannot easily tell the caller that we are.
+    assert_invariant(mProtectedQueue == VK_NULL_HANDLE);
+
+    if (mProtectedPool == VK_NULL_HANDLE) {
+
+        VkFenceCreateInfo fenceCreateInfo{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        vkCreateFence(mDevice, &fenceCreateInfo, VKALLOC, &mProtectedSubmission);
+        mProtectedPool = createPool(mDevice, mProtectedQueueFamilyIndex, true);
+        mProtectedCommandBuffer = std::make_unique<VulkanCommandBuffer>(mAllocator, mDevice, mProtectedPool);
+    }
+
+    return *(mProtectedCommandBuffer.get());
 }
 
 bool VulkanCommands::flush() {
@@ -334,7 +365,7 @@ void VulkanCommands::injectDependency(VkSemaphore next) {
 }
 
 void VulkanCommands::wait() {
-    VkFence fences[CAPACITY];
+    VkFence fences[CAPACITY_PROTECTED];
     size_t count = 0;
     for (size_t i = 0; i < CAPACITY; i++) {
         auto wrapper = mStorage[i].get();
@@ -343,6 +374,15 @@ void VulkanCommands::wait() {
             fences[count++] = wrapper->fence->fence;
         }
     }
+
+    if (mProtectedCommandBuffer) {
+        auto wrapper = mProtectedCommandBuffer.get();
+        VulkanCmdFence* fence = wrapper->fence.get();
+        if (fence) {
+            fences[count++] = wrapper->fence->fence;
+        }
+    }
+
     if (count > 0) {
         vkWaitForFences(mDevice, count, fences, VK_TRUE, UINT64_MAX);
         updateFences();
@@ -353,7 +393,7 @@ void VulkanCommands::gc() {
     FVK_SYSTRACE_CONTEXT();
     FVK_SYSTRACE_START("commands::gc");
 
-    VkFence fences[CAPACITY];
+    VkFence fences[CAPACITY_PROTECTED];
     size_t count = 0;
 
     for (size_t i = 0; i < CAPACITY; i++) {
@@ -369,6 +409,18 @@ void VulkanCommands::gc() {
         wrapper->fence->status.store(VK_SUCCESS);
         wrapper->reset();
         mAvailableBufferCount++;
+    }
+
+    if (mProtectedCommandBuffer) {
+        auto wrapper = mProtectedCommandBuffer.get();
+        if (wrapper->fence) {
+            VkResult const result = vkGetFenceStatus(mDevice, wrapper->fence->fence);
+            if (result == VK_SUCCESS) {
+                fences[count++] = wrapper->fence->fence;
+                wrapper->fence->status.store(VK_SUCCESS);
+                wrapper->reset();
+            }
+        }
     }
 
     if (count > 0) {
@@ -387,6 +439,18 @@ void VulkanCommands::updateFences() {
                 // This is either VK_SUCCESS, VK_NOT_READY, or VK_ERROR_DEVICE_LOST.
                 fence->status.store(status, std::memory_order_relaxed);
             }
+        }
+    }
+
+    // if we have the protected buffer present
+    if (mProtectedCommandBuffer) {
+        auto wrapper = mProtectedCommandBuffer.get();
+        VulkanCmdFence* fence = wrapper->fence.get();
+        // If there is a fence, then there is a submission
+        if (fence) {
+            VkResult status = vkGetFenceStatus(mDevice, fence->fence);
+            // This is either VK_SUCCESS, VK_NOT_READY, or VK_ERROR_DEVICE_LOST.
+            fence->status.store(status, std::memory_order_relaxed);
         }
     }
 }

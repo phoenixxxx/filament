@@ -326,6 +326,7 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
     deviceQueueCreateInfo[0].pQueuePriorities = &queuePriority[0];
     // Protected queue
     deviceQueueCreateInfo[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    deviceQueueCreateInfo[1].flags = VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT;
     deviceQueueCreateInfo[1].queueFamilyIndex = protectedGraphicsQueueFamilyIndex;
     deviceQueueCreateInfo[1].queueCount = 1;
     deviceQueueCreateInfo[1].pQueuePriorities = &queuePriority[0];
@@ -768,9 +769,11 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     assert_invariant(mImpl->mGraphicsQueue != VK_NULL_HANDLE);
 
     if (context.mProtectedMemorySupported) {
-        vkGetDeviceQueue(mImpl->mDevice, mImpl->mProtectedGraphicsQueueFamilyIndex, mImpl->mProtectedGraphicsQueueIndex,
-            &mImpl->mProtectedGraphicsQueue);
-        assert_invariant(mImpl->mProtectedGraphicsQueue != VK_NULL_HANDLE);
+        VkDeviceQueueInfo2 info = {};
+        info.queueFamilyIndex = mImpl->mProtectedGraphicsQueueFamilyIndex;
+        info.queueIndex = 0;
+        info.flags = VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT;
+        vkGetDeviceQueue2(mImpl->mDevice, &info, &mImpl->mGraphicsQueue);
     }
 
     // Store the extension support in the context
