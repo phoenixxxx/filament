@@ -915,7 +915,7 @@ bool VulkanDriver::isSRGBSwapChainSupported() {
 }
 
 bool VulkanDriver::isProtectedContentSupported() {
-    return mPlatform->isProtectedMemorySupported();
+    return mContext.isProtectedMemorySupported();
 }
 
 bool VulkanDriver::isStereoSupported() {
@@ -1225,9 +1225,11 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
 #endif
 
     // Check if protection encoding is needed:
-    VulkanCommandBuffer* pCommands = &mCommands.get();
+    VulkanCommandBuffer* pCommands = nullptr;
     if (isProtected)
         pCommands = &mCommands.getProtected();
+    else
+        pCommands = &mCommands.get();
 
     // We need to determine whether the same depth texture is both sampled and set as an attachment.
     // If that's the case, we need to change the layout of the texture to DEPTH_SAMPLER, which is a

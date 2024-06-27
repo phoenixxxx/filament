@@ -638,10 +638,6 @@ void VulkanPlatform::terminate() {
     }
 }
 
-bool VulkanPlatform::isProtectedMemorySupported() const noexcept {
-    return mImpl->mContext.mProtectedMemorySupported;
-}
-
 // This is the main entry point for context creation.
 Driver* VulkanPlatform::createDriver(void* sharedContext,
         const Platform::DriverConfig& driverConfig) noexcept {
@@ -886,7 +882,7 @@ SwapChainPtr VulkanPlatform::createSwapChain(void* nativeWindow, uint64_t flags,
     mImpl->mSurfaceSwapChains.insert(swapchain);
 
     if (flags & backend::SWAP_CHAIN_CONFIG_PROTECTED_CONTENT) {
-        if (!isProtectedMemorySupported()) {
+        if (!mImpl->mContext.mProtectedMemorySupported) {
             utils::slog.w << "protected swapchain requested, but VulkanPlatform does not support it"
                 << utils::io::endl;
         }

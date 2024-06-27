@@ -244,14 +244,6 @@ public:
     virtual void terminate();
 
     /**
-     * Return whether protected memory is supported by this backend.
-     * If protected memory is supported, the SWAP_CHAIN_CONFIG_PROTECTED_CONTENT flag can be
-     * used when creating a SwapChain.
-     * The default implementation returns false.
-     */
-    virtual bool isProtectedMemorySupported() const noexcept;
-
-    /**
      * @return The instance (VkInstance) for the Vulkan backend.
      */
     VkInstance getInstance() const noexcept;
