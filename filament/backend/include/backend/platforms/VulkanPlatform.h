@@ -200,6 +200,13 @@ public:
     virtual bool hasResized(SwapChainPtr handle);
 
     /**
+     * Check if the surface is protected.
+     * @param handle             The handle returned by createSwapChain()
+     * @return                   Whether the swapchain is protected
+     */
+    virtual bool isProtected(SwapChainPtr handle);
+
+    /**
      * Carry out a recreation of the swapchain.
      * @param handle             The handle returned by createSwapChain()
      * @return                   Result of the recreation

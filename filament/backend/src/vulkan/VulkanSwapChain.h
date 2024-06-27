@@ -72,6 +72,10 @@ struct VulkanSwapChain : public HwSwapChain, VulkanResource {
         return mExtent;
     }
 
+    inline bool isProtected() noexcept {
+        return mPlatform->isProtected(swapChain);
+    }
+
 private:
 	static constexpr int IMAGE_READY_SEMAPHORE_COUNT = FVK_MAX_COMMAND_BUFFERS;
 

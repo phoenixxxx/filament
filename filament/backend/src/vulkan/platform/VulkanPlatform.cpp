@@ -845,6 +845,10 @@ bool VulkanPlatform::hasResized(SwapChainPtr handle) {
     SWAPCHAIN_RET_FUNC(hasResized, handle, )
 }
 
+bool VulkanPlatform::isProtected(SwapChainPtr handle) {
+    SWAPCHAIN_RET_FUNC(isProtected, handle, )
+}
+
 VkResult VulkanPlatform::recreate(SwapChainPtr handle) {
     SWAPCHAIN_RET_FUNC(recreate, handle, )
 }

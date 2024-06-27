@@ -219,9 +219,10 @@ private:
     VkSemaphore mInjectedSignal = {};
     utils::FixedCapacityVector<std::unique_ptr<VulkanCommandBuffer>> mStorage;
     std::unique_ptr<VulkanCommandBuffer> mProtectedCommandBuffer;
-    VkFence mProtectedSubmission;
+    VkFence mProtectedFence = {};
     VkFence mFences[CAPACITY] = {};
     VkSemaphore mSubmissionSignals[CAPACITY] = {};
+    VkSemaphore mProtectedSubmissionSignal = {};
     uint8_t mAvailableBufferCount = CAPACITY;
     CommandBufferObserver* mObserver = nullptr;
 

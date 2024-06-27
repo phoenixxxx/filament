@@ -125,7 +125,8 @@ VulkanPlatformSurfaceSwapChain::VulkanPlatformSurfaceSwapChain(VulkanContext con
       mSurface(surface),
       mFallbackExtent(fallbackExtent),
       mUsesRGB((flags & backend::SWAP_CHAIN_CONFIG_SRGB_COLORSPACE) != 0),
-      mHasStencil((flags & backend::SWAP_CHAIN_HAS_STENCIL_BUFFER) != 0) {
+      mHasStencil((flags & backend::SWAP_CHAIN_HAS_STENCIL_BUFFER) != 0),
+      mIsProtected((flags & backend::SWAP_CHAIN_CONFIG_PROTECTED_CONTENT) != 0) {
     assert_invariant(surface);
     create();
 }
@@ -315,6 +316,10 @@ bool VulkanPlatformSurfaceSwapChain::hasResized() {
         perceivedExtent = mFallbackExtent;
     }
     return !equivalent(mSwapChainBundle.extent, perceivedExtent);
+}
+
+bool VulkanPlatformSurfaceSwapChain::isProtected() {
+    return mIsProtected;
 }
 
 // Non-virtual override
