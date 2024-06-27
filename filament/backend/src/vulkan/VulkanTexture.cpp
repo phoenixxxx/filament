@@ -183,8 +183,12 @@ VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
     VkMemoryRequirements memReqs = {};
     vkGetImageMemoryRequirements(mDevice, mTextureImage, &memReqs);
 
+    VkFlags memTypeFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    if (any(usage & TextureUsage::PROTECTED)) {
+        memTypeFlags |= VK_MEMORY_PROPERTY_PROTECTED_BIT;
+    }
     uint32_t memoryTypeIndex
-            = context.selectMemoryType(memReqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+            = context.selectMemoryType(memReqs.memoryTypeBits, memTypeFlags);
 
     FILAMENT_CHECK_POSTCONDITION(memoryTypeIndex < VK_MAX_MEMORY_TYPES)
             << "VulkanTexture: unable to find a memory type that meets requirements.";

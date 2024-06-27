@@ -92,6 +92,9 @@ struct VulkanRenderPass {
 struct VulkanContext {
 public:
     inline uint32_t selectMemoryType(uint32_t flags, VkFlags reqs) const {
+        if ((reqs & VK_MEMORY_PROPERTY_PROTECTED_BIT) != 0) {
+            assert_invariant(isProtectedMemorySupported()==true);
+        }
         for (uint32_t i = 0; i < VK_MAX_MEMORY_TYPES; i++) {
             if (flags & 1) {
                 if ((mMemoryProperties.memoryTypes[i].propertyFlags & reqs) == reqs) {
