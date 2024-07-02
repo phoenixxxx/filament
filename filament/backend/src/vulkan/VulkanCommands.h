@@ -198,10 +198,14 @@ public:
 
     std::string getTopGroupMarker() const;
 #endif
+    using BufferList = utils::FixedCapacityVector<std::unique_ptr<VulkanCommandBuffer>>;
+
+private:
+    // called by both 'get' and 'getProtected'
+    VulkanCommandBuffer& getInternal(BufferList& storage, int8_t& currentCommandBufferIndex, uint8_t& availableBufferCount, VkFence fences[]);
 
 private:
     static constexpr int CAPACITY = FVK_MAX_COMMAND_BUFFERS;
-    static constexpr int CAPACITY_PROTECTED = CAPACITY + 1;
     VkDevice const mDevice;
     VkQueue const mQueue;
     VkCommandPool const mPool;
@@ -215,15 +219,17 @@ private:
     // int8 only goes up to 127, therefore capacity must be less than that.
     static_assert(CAPACITY < 128);
     int8_t mCurrentCommandBufferIndex = -1;
+    int8_t mCurrentProtectedCommandBufferIndex = -1;
     VkSemaphore mSubmissionSignal = {};
     VkSemaphore mInjectedSignal = {};
-    utils::FixedCapacityVector<std::unique_ptr<VulkanCommandBuffer>> mStorage;
-    std::unique_ptr<VulkanCommandBuffer> mProtectedCommandBuffer;
-    VkFence mProtectedFence = {};
+    BufferList mStorage;
+    BufferList mProtectedStorage;
+    VkFence mProtectedFences[CAPACITY] = {};
     VkFence mFences[CAPACITY] = {};
     VkSemaphore mSubmissionSignals[CAPACITY] = {};
-    VkSemaphore mProtectedSubmissionSignal = {};
+    VkSemaphore mProtectedSubmissionSignals[CAPACITY] = {};
     uint8_t mAvailableBufferCount = CAPACITY;
+    uint8_t mAvailableProtectedBufferCount = CAPACITY;
     CommandBufferObserver* mObserver = nullptr;
 
 #if FVK_ENABLED(FVK_DEBUG_GROUP_MARKERS)
