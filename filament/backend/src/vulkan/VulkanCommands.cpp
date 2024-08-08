@@ -353,7 +353,7 @@ bool VulkanCommands::flush() {
             }
             popMarkers = false;
 #endif
-            submitCommandBuffer(mQueue, mProtectedStorage[index].get(),
+            submitCommandBuffer(mProtectedQueue, mProtectedStorage[index].get(),
                 mSubmissionSignal, mInjectedSignal, mProtectedSubmissionSignals[index]);
             mCurrentProtectedCommandBufferIndex = -1;
             submitted = true;
@@ -402,7 +402,7 @@ void VulkanCommands::injectDependency(VkSemaphore next) {
 static inline size_t gatherFences(int capacity, const VulkanCommands::BufferList& buffers,
     VkFence fences[], int8_t skipBufferIndex) {
     size_t count = 0;
-    for (size_t i = 0; i < capacity; i++) {
+    for (int i = 0; i < capacity; i++) {
         auto wrapper = buffers[i].get();
         if (wrapper->buffer() != VK_NULL_HANDLE
             && skipBufferIndex != static_cast<int8_t>(i)) {
@@ -434,7 +434,7 @@ void VulkanCommands::wait() {
 static inline size_t resetStorage(int capacity, const VulkanCommands::BufferList& buffers,
     VkDevice device, VkFence fences[]) {
     size_t count = 0;
-    for (size_t i = 0; i < capacity; i++) {
+    for (int i = 0; i < capacity; i++) {
         auto wrapper = buffers[i].get();
         if (wrapper->buffer() == VK_NULL_HANDLE) {
             continue;
@@ -480,7 +480,7 @@ void VulkanCommands::gc() {
 
 static inline void updateStorageFences(int capacity, const VulkanCommands::BufferList& buffers,
     VkDevice device) {
-    for (size_t i = 0; i < capacity; i++) {
+    for (int i = 0; i < capacity; i++) {
         auto wrapper = buffers[i].get();
         if (wrapper->buffer() != VK_NULL_HANDLE) {
             VulkanCmdFence* fence = wrapper->fence.get();

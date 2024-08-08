@@ -332,18 +332,14 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
 
     // We could simply enable all supported features, but since that may have performance
     // consequences let's just enable the features we need.
-    VkPhysicalDeviceFeatures2 enabledFeatures{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
-        .pNext = nullptr,
-        .features = {
-            .samplerAnisotropy = features.features.samplerAnisotropy,
-            .textureCompressionETC2 = features.features.textureCompressionETC2,
-            .textureCompressionBC = features.features.textureCompressionBC,
-            .shaderClipDistance = features.features.shaderClipDistance,
-        }
+    VkPhysicalDeviceFeatures enabledFeatures{
+        .samplerAnisotropy = features.features.samplerAnisotropy,
+        .textureCompressionETC2 = features.features.textureCompressionETC2,
+        .textureCompressionBC = features.features.textureCompressionBC,
+        .shaderClipDistance = features.features.shaderClipDistance,
     };
 
-    deviceCreateInfo.pEnabledFeatures = nullptr;
+    deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
     deviceCreateInfo.enabledExtensionCount = (uint32_t) requestExtensions.size();
     deviceCreateInfo.ppEnabledExtensionNames = requestExtensions.data();
 
