@@ -367,11 +367,11 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
         pNext = &multiview;
     }
 
+    VkPhysicalDeviceProtectedMemoryFeatures protectedMemory = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
+    };
     if (protectedGraphicsQueueFamilyIndex != INVALID_VK_INDEX) {
         // Enable protected memory, if requested.
-        VkPhysicalDeviceProtectedMemoryFeatures protectedMemory = {
-            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
-        };
         protectedMemory.protectedMemory = VK_TRUE;
 
         protectedMemory.pNext = pNext;
