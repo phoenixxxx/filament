@@ -784,7 +784,7 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
         info.queueIndex = mImpl->mProtectedGraphicsQueueIndex;
         info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
         info.flags = VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT;
-        vkGetDeviceQueue2(mImpl->mDevice, &info, &mImpl->mGraphicsQueue);
+        vkGetDeviceQueue2(mImpl->mDevice, &info, &mImpl->mProtectedGraphicsQueue);
     }
 
     // Store the extension support in the context
