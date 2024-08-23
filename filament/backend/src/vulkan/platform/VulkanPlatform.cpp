@@ -781,7 +781,8 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     if (context.mProtectedMemorySupported) {
         VkDeviceQueueInfo2 info = {};
         info.queueFamilyIndex = mImpl->mProtectedGraphicsQueueFamilyIndex;
-        info.queueIndex = 0;
+        info.queueIndex = mImpl->mProtectedGraphicsQueueIndex;
+        info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2;
         info.flags = VK_DEVICE_QUEUE_CREATE_PROTECTED_BIT;
         vkGetDeviceQueue2(mImpl->mDevice, &info, &mImpl->mGraphicsQueue);
     }
