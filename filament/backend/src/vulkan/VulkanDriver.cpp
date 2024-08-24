@@ -655,7 +655,7 @@ void VulkanDriver::destroyRenderTarget(Handle<HwRenderTarget> rth) {
 }
 
 void VulkanDriver::createFenceR(Handle<HwFence> fh, int) {
-    VulkanCommandBuffer const& commandBuffer = mCommands.get();
+    VulkanCommandBuffer const& commandBuffer = getCommandBuffer();
     mResourceAllocator.construct<VulkanFence>(fh, commandBuffer.fence);
 }
 
@@ -1204,7 +1204,6 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     // first render pass. Note however that its contents are often preserved on subsequent render
     // passes, due to multiple views.
     TargetBufferFlags discardStart = params.flags.discardStart;
-    bool isProtected = false;
     if (rt->isSwapChain()) {
         VulkanSwapChain* sc = mCurrentSwapChain;
         assert_invariant(sc);
@@ -1213,7 +1212,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             sc->markFirstRenderPass();
         }
 
-        isProtected = sc->isProtected();
+        mProtectedModeActive = sc->isProtected();
     }
 
     VulkanAttachment depth = rt->getSamples() == 1 ? rt->getDepth() : rt->getMsaaDepth();
@@ -1224,18 +1223,11 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     }
 #endif
 
-    // Check if protection encoding is needed:
-    VulkanCommandBuffer* pCommands = nullptr;
-    if (isProtected)
-        pCommands = &mCommands.getProtected();
-    else
-        pCommands = &mCommands.get();
-
     // We need to determine whether the same depth texture is both sampled and set as an attachment.
     // If that's the case, we need to change the layout of the texture to DEPTH_SAMPLER, which is a
     // more general layout. Otherwise, we prefer the DEPTH_ATTACHMENT layout, which is optimal for
     // the non-sampling case.
-    VulkanCommandBuffer& commands = *pCommands;
+    VulkanCommandBuffer& commands = getCommandBuffer();
     VkCommandBuffer const cmdbuffer = commands.buffer();
 
     UTILS_NOUNROLL
@@ -1459,7 +1451,7 @@ void VulkanDriver::endRenderPass(int) {
     FVK_SYSTRACE_CONTEXT();
     FVK_SYSTRACE_START("endRenderPass");
 
-    VulkanCommandBuffer& commands = mCommands.get();
+    VulkanCommandBuffer& commands = getCommandBuffer();
     VkCommandBuffer cmdbuffer = commands.buffer();
     vkCmdEndRenderPass(cmdbuffer);
 
@@ -1531,7 +1523,7 @@ void VulkanDriver::nextSubpass(int) {
     assert_invariant(renderTarget);
     assert_invariant(mCurrentRenderPass.params.subpassMask);
 
-    vkCmdNextSubpass(mCommands.get().buffer(), VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdNextSubpass(getCommandBuffer().buffer(), VK_SUBPASS_CONTENTS_INLINE);
 
     mPipelineCache.bindRenderPass(mCurrentRenderPass.renderPass,
             ++mCurrentRenderPass.currentSubpass);
@@ -1798,7 +1790,7 @@ void VulkanDriver::bindPipeline(PipelineState const& pipelineState) {
     FVK_SYSTRACE_CONTEXT();
     FVK_SYSTRACE_START("draw");
 
-    VulkanCommandBuffer* commands = &mCommands.get();
+    VulkanCommandBuffer* commands = &getCommandBuffer();
     const VulkanVertexBufferInfo& vbi =
             *mResourceAllocator.handle_cast<VulkanVertexBufferInfo*>(pipelineState.vertexBufferInfo);
 
@@ -1917,7 +1909,7 @@ void VulkanDriver::bindRenderPrimitive(Handle<HwRenderPrimitive> rph) {
     FVK_SYSTRACE_CONTEXT();
     FVK_SYSTRACE_START("bindRenderPrimitive");
 
-    VulkanCommandBuffer* commands = &mCommands.get();
+    VulkanCommandBuffer* commands = &getCommandBuffer();
     VkCommandBuffer cmdbuffer = commands->buffer();
     const VulkanRenderPrimitive& prim = *mResourceAllocator.handle_cast<VulkanRenderPrimitive*>(rph);
     commands->acquire(prim.indexBuffer);
@@ -1946,7 +1938,7 @@ void VulkanDriver::draw2(uint32_t indexOffset, uint32_t indexCount, uint32_t ins
     FVK_SYSTRACE_CONTEXT();
     FVK_SYSTRACE_START("draw2");
 
-    VulkanCommandBuffer& commands = mCommands.get();
+    VulkanCommandBuffer& commands = getCommandBuffer();
     VkCommandBuffer cmdbuffer = commands.buffer();
 
     // Bind "dynamic" UBOs if they need to change.
@@ -1977,7 +1969,7 @@ void VulkanDriver::dispatchCompute(Handle<HwProgram> program, math::uint3 workGr
 }
 
 void VulkanDriver::scissor(Viewport scissorBox) {
-    VulkanCommandBuffer& commands = mCommands.get();
+    VulkanCommandBuffer& commands = getCommandBuffer();
     VkCommandBuffer cmdbuffer = commands.buffer();
 
     // Set scissoring.
