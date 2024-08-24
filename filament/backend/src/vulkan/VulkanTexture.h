@@ -81,6 +81,7 @@ struct VulkanTexture : public HwTexture, VulkanResource {
 
     VkFormat getVkFormat() const { return mVkFormat; }
     VkImage getVkImage() const { return mTextureImage; }
+    bool getProtected()const { return mIsProtected; }
 
     VulkanLayout getLayout(uint32_t layer, uint32_t level) const;
 
@@ -145,6 +146,7 @@ private:
     const VkComponentMapping mSwizzle;
     VkImage mTextureImage = VK_NULL_HANDLE;
     VkDeviceMemory mTextureImageMemory = VK_NULL_HANDLE;
+    bool mIsProtected = false;
 
     // Track the image layout of each subresource using a sparse range map.
     utils::RangeMap<uint32_t, VulkanLayout> mSubresourceLayouts;

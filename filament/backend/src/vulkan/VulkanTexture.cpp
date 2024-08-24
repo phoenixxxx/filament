@@ -98,6 +98,7 @@ VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
     }
     if (any(usage & TextureUsage::PROTECTED)) {
         imageInfo.flags |= VK_IMAGE_CREATE_PROTECTED_BIT;
+        mIsProtected = true;
     }
 
     // Filament expects blit() to work with any texture, so we almost always set these usage flags.
@@ -261,6 +262,7 @@ void VulkanTexture::updateImage(const PixelBufferDescriptor& data, uint32_t widt
     assert_invariant(width <= this->width && height <= this->height);
     assert_invariant(depth <= this->depth * ((target == SamplerType::SAMPLER_CUBEMAP ||
                         target == SamplerType::SAMPLER_CUBEMAP_ARRAY) ? 6 : 1));
+    assert_invariant(mIsProtected == false);
 
     const PixelBufferDescriptor* hostData = &data;
     PixelBufferDescriptor reshapedData;

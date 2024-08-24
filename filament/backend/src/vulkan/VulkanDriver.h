@@ -128,12 +128,13 @@ private:
     void collectGarbage();
     inline VulkanCommandBuffer& getCommandBuffer() {
         // Check if protection encoding is needed:
-        if (mProtectedModeActive)
+        if (mIsRenderPassProtected || mIsContentProtected)
             return mCommands.getProtected();
         else
             return mCommands.get();
     }
-    bool mProtectedModeActive = false;
+    bool mIsRenderPassProtected = false;
+    bool mIsContentProtected = false;
 
     VulkanPlatform* mPlatform = nullptr;
     std::unique_ptr<VulkanTimestamps> mTimestamps;

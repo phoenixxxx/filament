@@ -1204,6 +1204,9 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     // first render pass. Note however that its contents are often preserved on subsequent render
     // passes, due to multiple views.
     TargetBufferFlags discardStart = params.flags.discardStart;
+
+    // By default rendering to a render target isn't protected
+    mIsRenderPassProtected = false;
     if (rt->isSwapChain()) {
         VulkanSwapChain* sc = mCurrentSwapChain;
         assert_invariant(sc);
@@ -1212,7 +1215,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             sc->markFirstRenderPass();
         }
 
-        mProtectedModeActive = sc->isProtected();
+        mIsRenderPassProtected = sc->isProtected();
     }
 
     VulkanAttachment depth = rt->getSamples() == 1 ? rt->getDepth() : rt->getMsaaDepth();
@@ -1243,6 +1246,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             if (UTILS_LIKELY(boundSampler->t)) {
                 VulkanTexture* texture
                         = mResourceAllocator.handle_cast<VulkanTexture*>(boundSampler->t);
+                mIsContentProtected |= texture->getProtected();
                 if (!any(texture->usage & TextureUsage::DEPTH_ATTACHMENT)) {
                     continue;
                 }
