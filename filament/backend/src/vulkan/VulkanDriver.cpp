@@ -1225,6 +1225,26 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
         depth.texture->print();
     }
 #endif
+    // Check content protection level since the next stage requires the command buffer (to bind the texture
+    // and for the transition).
+    mIsContentProtected = false;
+    UTILS_NOUNROLL
+        for (uint8_t samplerGroupIdx = 0; samplerGroupIdx < Program::SAMPLER_BINDING_COUNT;
+            samplerGroupIdx++) {
+        VulkanSamplerGroup* vksb = mSamplerBindings[samplerGroupIdx];
+        if (!vksb) {
+            continue;
+        }
+        SamplerGroup* sb = vksb->sb.get();
+        for (size_t i = 0; i < sb->getSize(); i++) {
+            SamplerDescriptor const* boundSampler = sb->data() + i;
+            if (UTILS_LIKELY(boundSampler->t)) {
+                VulkanTexture* texture
+                    = mResourceAllocator.handle_cast<VulkanTexture*>(boundSampler->t);
+                mIsContentProtected |= texture->getProtected();
+            }
+        }
+    }
 
     // We need to determine whether the same depth texture is both sampled and set as an attachment.
     // If that's the case, we need to change the layout of the texture to DEPTH_SAMPLER, which is a
@@ -1246,7 +1266,6 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             if (UTILS_LIKELY(boundSampler->t)) {
                 VulkanTexture* texture
                         = mResourceAllocator.handle_cast<VulkanTexture*>(boundSampler->t);
-                mIsContentProtected |= texture->getProtected();
                 if (!any(texture->usage & TextureUsage::DEPTH_ATTACHMENT)) {
                     continue;
                 }
