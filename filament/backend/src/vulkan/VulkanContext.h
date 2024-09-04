@@ -129,7 +129,7 @@ public:
     }
 
     inline bool isDepthClampSupported() const noexcept {
-        return mPhysicalDeviceFeatures.depthClamp == VK_TRUE;
+        return mPhysicalDeviceFeatures.features.depthClamp == VK_TRUE;
     }
 
     inline bool isDebugMarkersSupported() const noexcept {
