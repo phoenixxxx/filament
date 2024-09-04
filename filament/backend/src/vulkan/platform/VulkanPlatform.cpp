@@ -333,10 +333,11 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
     // We could simply enable all supported features, but since that may have performance
     // consequences let's just enable the features we need.
     VkPhysicalDeviceFeatures enabledFeatures{
-        .samplerAnisotropy = features.features.samplerAnisotropy,
-        .textureCompressionETC2 = features.features.textureCompressionETC2,
-        .textureCompressionBC = features.features.textureCompressionBC,
-        .shaderClipDistance = features.features.shaderClipDistance,
+            .depthClamp = features.depthClamp,
+            .samplerAnisotropy = features.samplerAnisotropy,
+            .textureCompressionETC2 = features.textureCompressionETC2,
+            .textureCompressionBC = features.textureCompressionBC,
+            .shaderClipDistance = features.shaderClipDistance,
     };
 
     deviceCreateInfo.pEnabledFeatures = &enabledFeatures;
