@@ -50,7 +50,8 @@ VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanComm
       mStagePool(stagePool),
       mDevice(device),
       mAllocator(allocator),
-      mCommands(commands) {}
+      mCommands(commands),
+      mIsProtected(any(usage& TextureUsage::PROTECTED)) {}
 
 VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
         VulkanContext const& context, VmaAllocator allocator, VulkanCommands* commands,
