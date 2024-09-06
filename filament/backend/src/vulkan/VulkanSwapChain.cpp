@@ -63,7 +63,7 @@ void VulkanSwapChain::update() {
 
     TextureUsage depthUsage = TextureUsage::DEPTH_ATTACHMENT;
     TextureUsage colorUsage = TextureUsage::COLOR_ATTACHMENT;
-    if (isProtected()) {
+    if (bundle.protection == true) {
         depthUsage |= TextureUsage::PROTECTED;
         colorUsage |= TextureUsage::PROTECTED;
     }

@@ -247,6 +247,7 @@ VkResult VulkanPlatformSurfaceSwapChain::create() {
     mSwapChainBundle.depthFormat =
             selectDepthFormat(mContext.getAttachmentDepthStencilFormats(), mHasStencil);
     mSwapChainBundle.depth = createImage(mSwapChainBundle.extent, mSwapChainBundle.depthFormat);
+    mSwapChainBundle.protection = mIsProtected;
 
     FVK_LOGI << "vkCreateSwapchain"
            << ": " << mSwapChainBundle.extent.width << "x" << mSwapChainBundle.extent.height << ", "
