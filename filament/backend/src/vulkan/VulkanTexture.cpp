@@ -238,7 +238,13 @@ VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
     if (imageInfo.usage
         & (VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
            | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)) {
-        VulkanCommandBuffer& commands = mCommands->get();
+        VulkanCommandBuffer* pCommands = nullptr;
+        if (mIsProtected) {
+            pCommands = &mCommands->getProtected();
+        } else {
+            pCommands = &mCommands->get();
+        }
+        VulkanCommandBuffer& commands = *pCommands;
         VkCommandBuffer const cmdbuf = commands.buffer();
         commands.acquire(this);
         transitionLayout(cmdbuf, mFullViewRange, imgutil::getDefaultLayout(imageInfo.usage));
