@@ -39,6 +39,7 @@ VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanComm
       mViewType(imgutil::getViewType(target)),
       mSwizzle({}),
       mTextureImage(image),
+      mIsProtected(any(usage& TextureUsage::PROTECTED)),
       mFullViewRange{
               .aspectMask = getImageAspect(),
               .baseMipLevel = 0,
@@ -50,8 +51,7 @@ VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanComm
       mStagePool(stagePool),
       mDevice(device),
       mAllocator(allocator),
-      mCommands(commands),
-      mIsProtected(any(usage& TextureUsage::PROTECTED)) {}
+      mCommands(commands) {}
 
 VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
         VulkanContext const& context, VmaAllocator allocator, VulkanCommands* commands,
