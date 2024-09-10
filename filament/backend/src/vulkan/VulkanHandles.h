@@ -191,7 +191,7 @@ struct PushConstantDescription {
 
     uint32_t getVkRangeCount() const noexcept { return mRangeCount; }
 
-    void write(VulkanCommands* commands, VkPipelineLayout layout, backend::ShaderStage stage,
+    void write(VulkanCommands* commands, bool isProtected, VkPipelineLayout layout, backend::ShaderStage stage,
             uint8_t index, backend::PushConstantVariant const& value);
 
 private:
@@ -242,9 +242,9 @@ struct VulkanProgram : public HwProgram, VulkanResource {
         return mInfo->pushConstantDescription.getVkRanges();
     }
 
-    inline void writePushConstant(VulkanCommands* commands, VkPipelineLayout layout,
+    inline void writePushConstant(VulkanCommands* commands, bool isProtected, VkPipelineLayout layout,
             backend::ShaderStage stage, uint8_t index, backend::PushConstantVariant const& value) {
-        mInfo->pushConstantDescription.write(commands, layout, stage, index, value);
+        mInfo->pushConstantDescription.write(commands, isProtected, layout, stage, index, value);
     }
 
 #if FVK_ENABLED_DEBUG_SAMPLER_NAME

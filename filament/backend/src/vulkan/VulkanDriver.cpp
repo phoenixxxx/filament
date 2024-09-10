@@ -1636,7 +1636,7 @@ void VulkanDriver::setPushConstant(backend::ShaderStage stage, uint8_t index,
         backend::PushConstantVariant value) {
     assert_invariant(mBoundPipeline.program && "Expect a program when writing to push constants");
     VulkanCommands* commands = &mCommands;
-    mBoundPipeline.program->writePushConstant(commands, mBoundPipeline.pipelineLayout, stage, index,
+    mBoundPipeline.program->writePushConstant(commands, (mIsContentProtected||mIsRenderPassProtected), mBoundPipeline.pipelineLayout, stage, index,
             value);
 }
 

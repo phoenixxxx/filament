@@ -161,9 +161,13 @@ PushConstantDescription::PushConstantDescription(backend::Program const& program
     }
 }
 
-void PushConstantDescription::write(VulkanCommands* commands, VkPipelineLayout layout,
+void PushConstantDescription::write(VulkanCommands* commands, bool isProtected, VkPipelineLayout layout,
         backend::ShaderStage stage, uint8_t index, backend::PushConstantVariant const& value) {
-    VulkanCommandBuffer* cmdbuf = &(commands->get());
+    VulkanCommandBuffer* cmdbuf;
+    if (isProtected)
+        cmdbuf = &(commands->getProtected());
+    else
+        cmdbuf = &(commands->get());
     uint32_t binaryValue = 0;
     UTILS_UNUSED_IN_RELEASE auto const& types = mTypes[(uint8_t) stage];
     if (std::holds_alternative<bool>(value)) {
