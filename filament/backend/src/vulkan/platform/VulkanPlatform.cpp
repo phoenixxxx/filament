@@ -27,7 +27,6 @@
 #include <utils/PrivateImplementation-impl.h>
 #include <utils/Panic.h>
 
-#define PROTECTED_MEM_NO_FAULT //this allows the imprementation to test if we are writing to prot mem
 #define SWAPCHAIN_RET_FUNC(func, handle, ...)                                                      \
     if (mImpl->mSurfaceSwapChains.find(handle) != mImpl->mSurfaceSwapChains.end()) {               \
         return static_cast<VulkanPlatformSurfaceSwapChain*>(handle)->func(__VA_ARGS__);            \
@@ -380,19 +379,6 @@ VkDevice createLogicalDevice(VkPhysicalDevice physicalDevice,
         pNext = &protectedMemory;
     }
 
-#if defined(PROTECTED_MEM_NO_FAULT)
-    VkPhysicalDeviceProtectedMemoryProperties protectedMemoryProperties = {
-    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES,
-    };
-    if (protectedGraphicsQueueFamilyIndex != INVALID_VK_INDEX) {
-        // Enable protected memory, if requested.
-        protectedMemoryProperties.protectedNoFault = VK_TRUE;
-
-        protectedMemoryProperties.pNext = pNext;
-        pNext = &protectedMemoryProperties;
-    }
-#endif
-
     deviceCreateInfo.pNext = pNext;
 
 
@@ -729,6 +715,13 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     // Chain to the pNext linked list
     queryProtectedMemoryFeatures.pNext = context.mPhysicalDeviceFeatures.pNext;
     context.mPhysicalDeviceFeatures.pNext = &queryProtectedMemoryFeatures;
+
+
+    VkPhysicalDeviceProtectedMemoryProperties protectedMemoryProperties = {
+    .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES,
+    };
+    protectedMemoryProperties.pNext = context.mPhysicalDeviceFeatures.pNext;
+    context.mPhysicalDeviceFeatures.pNext = &protectedMemoryProperties;
 
     // Initialize the following fields: physicalDeviceProperties, memoryProperties,
     // physicalDeviceFeatures, graphicsQueueFamilyIndex.
