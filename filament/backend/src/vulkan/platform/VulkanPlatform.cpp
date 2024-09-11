@@ -720,12 +720,12 @@ Driver* VulkanPlatform::createDriver(void* sharedContext,
     VkPhysicalDeviceProtectedMemoryProperties protectedMemoryProperties = {
     .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_PROPERTIES,
     };
-    protectedMemoryProperties.pNext = context.mPhysicalDeviceFeatures.pNext;
-    context.mPhysicalDeviceFeatures.pNext = &protectedMemoryProperties;
+    protectedMemoryProperties.pNext = context.mPhysicalDeviceProperties.pNext;
+    context.mPhysicalDeviceProperties.pNext = &protectedMemoryProperties;
 
     // Initialize the following fields: physicalDeviceProperties, memoryProperties,
     // physicalDeviceFeatures, graphicsQueueFamilyIndex.
-    vkGetPhysicalDeviceProperties(mImpl->mPhysicalDevice, &context.mPhysicalDeviceProperties);
+    vkGetPhysicalDeviceProperties2(mImpl->mPhysicalDevice, &context.mPhysicalDeviceProperties);
     vkGetPhysicalDeviceFeatures2(mImpl->mPhysicalDevice, &context.mPhysicalDeviceFeatures);
     vkGetPhysicalDeviceMemoryProperties(mImpl->mPhysicalDevice, &context.mMemoryProperties);
 

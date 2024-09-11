@@ -117,11 +117,11 @@ public:
     }
 
     inline VkPhysicalDeviceLimits const& getPhysicalDeviceLimits() const noexcept {
-        return mPhysicalDeviceProperties.limits;
+        return mPhysicalDeviceProperties.properties.limits;
     }
 
     inline uint32_t getPhysicalDeviceVendorId() const noexcept {
-        return mPhysicalDeviceProperties.vendorID;
+        return mPhysicalDeviceProperties.properties.vendorID;
     }
 
     inline bool isImageCubeArraySupported() const noexcept {
@@ -155,7 +155,7 @@ public:
 
 private:
     VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
-    VkPhysicalDeviceProperties mPhysicalDeviceProperties = {};
+    VkPhysicalDeviceProperties2 mPhysicalDeviceProperties = {};
     VkPhysicalDeviceFeatures2 mPhysicalDeviceFeatures = {
             .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROTECTED_MEMORY_FEATURES,
     };
