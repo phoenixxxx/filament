@@ -213,8 +213,8 @@ VkResult VulkanPlatformSurfaceSwapChain::create() {
 
     VkSwapchainCreateInfoKHR const createInfo{
             .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-            .surface = mSurface,
             .flags = mIsProtected ? VK_SWAPCHAIN_CREATE_PROTECTED_BIT_KHR : 0,
+            .surface = mSurface,
             .minImageCount = desiredImageCount,
             .imageFormat = surfaceFormat.format,
             .imageColorSpace = surfaceFormat.colorSpace,
