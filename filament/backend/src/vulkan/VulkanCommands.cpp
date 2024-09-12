@@ -276,7 +276,7 @@ VulkanCommandBuffer& VulkanCommands::getProtected() {
 }
 
 inline static void submitCommandBuffer(VkQueue queue, VulkanCommandBuffer* commandBuffer,
-    VkSemaphore& submission, VkSemaphore& injection, VkSemaphore finished) {
+    VkSemaphore& submission, VkSemaphore& injection, VkSemaphore finished, bool protectedSubmit) {
     VkPipelineStageFlags waitDestStageMasks[2] = {
         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
         VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
@@ -307,6 +307,15 @@ inline static void submitCommandBuffer(VkQueue queue, VulkanCommandBuffer* comma
             .signalSemaphoreCount = 1u,
             .pSignalSemaphores = &finished,
     };
+    // add submit protection if needed
+    VkProtectedSubmitInfo protectedSubmitInfo{
+        .sType = VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO,
+        .protectedSubmit = VK_TRUE,
+    };
+
+    if (protectedSubmit) {
+        submitInfo.pNext = &protectedSubmitInfo;
+    }
 
 #if FVK_ENABLED(FVK_DEBUG_COMMAND_BUFFER)
     FVK_LOGI << "Submitting cmdbuffer=" << cmdbuffer
@@ -354,7 +363,8 @@ bool VulkanCommands::flush() {
             popMarkers = false;
 #endif
             submitCommandBuffer(mProtectedQueue, mProtectedStorage[index].get(),
-                mSubmissionSignal, mInjectedSignal, mProtectedSubmissionSignals[index]);
+                mSubmissionSignal, mInjectedSignal, mProtectedSubmissionSignals[index],
+                true);
             mCurrentProtectedCommandBufferIndex = -1;
             submitted = true;
         }
@@ -375,7 +385,8 @@ bool VulkanCommands::flush() {
         }
 #endif
         submitCommandBuffer(mQueue, mStorage[index].get(),
-            mSubmissionSignal, mInjectedSignal, mSubmissionSignals[index]);
+            mSubmissionSignal, mInjectedSignal, mSubmissionSignals[index],
+            false);
         mCurrentCommandBufferIndex = -1;
         submitted = true;
     }
