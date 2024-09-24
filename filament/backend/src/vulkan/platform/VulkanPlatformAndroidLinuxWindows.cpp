@@ -35,6 +35,7 @@
 
 // Platform specific includes and defines
 #if defined(__ANDROID__)
+    #include <android/hardware_buffer.h>
     #include <android/native_window.h>
 #elif defined(__linux__) && defined(FILAMENT_SUPPORTS_WAYLAND)
     #include <dlfcn.h>
@@ -85,6 +86,12 @@
 using namespace bluevk;
 
 namespace filament::backend {
+
+void VulkanPlatform::importExternalImage(void* image){
+#if defined(__ANDROID__)
+    //import AHB specific code
+#endif
+    }
 
 VulkanPlatform::ExtensionSet VulkanPlatform::getSwapchainInstanceExtensions() {
     VulkanPlatform::ExtensionSet const ret = {

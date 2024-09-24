@@ -1091,6 +1091,7 @@ void VulkanDriver::update3DImage(Handle<HwTexture> th, uint32_t level, uint32_t 
 }
 
 void VulkanDriver::setupExternalImage(void* image) {
+    mPlatform->setupExternalImage(image);
 }
 
 TimerQueryResult VulkanDriver::getTimerQueryValue(Handle<HwTimerQuery> tqh, uint64_t* elapsedTime) {

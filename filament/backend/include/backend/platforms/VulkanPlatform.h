@@ -267,8 +267,14 @@ public:
      */
     VkQueue getGraphicsQueue() const noexcept;
 
+    /**
+     * @return Sets up the external image based on the platform.
+     */
+    void setupExternalImage(void* image) const noexcept;
+
 private:
     static ExtensionSet getSwapchainInstanceExtensions();
+    static void importExternalImage(void* image);
 
     // Platform dependent helper methods
     using SurfaceBundle = std::tuple<VkSurfaceKHR, VkExtent2D>;

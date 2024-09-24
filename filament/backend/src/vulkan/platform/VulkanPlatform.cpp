@@ -848,6 +848,10 @@ VkQueue VulkanPlatform::getGraphicsQueue() const noexcept {
     return mImpl->mGraphicsQueue;
 }
 
+void VulkanPlatform::setupExternalImage(void* image) const noexcept {
+    importExternalImage(image);
+}
+
 #undef SWAPCHAIN_RET_FUNC
 
 }// namespace filament::backend
