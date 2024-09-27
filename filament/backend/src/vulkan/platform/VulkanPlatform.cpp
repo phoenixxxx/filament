@@ -848,8 +848,17 @@ VkQueue VulkanPlatform::getGraphicsQueue() const noexcept {
     return mImpl->mGraphicsQueue;
 }
 
-void VulkanPlatform::setupExternalImage(void* image) const noexcept {
-    importExternalImage(image);
+void VulkanPlatform::setupExternalImage(void* imageBuffer, void* fence, VkImage* pImage, VkDeviceMemory* pMemory) const noexcept {
+    createExternalImage(imageBuffer, mImpl->mDevice, nullptr, pImage);
+    uint32_t bits = getExternalImageMemoryBits(imageBuffer, mImpl->mDevice);
+    allocateExternalImage(imageBuffer, mImpl->mDevice, nullptr, *pImage, bits, pMemory);
+    VkResult result = vkBindImageMemory(mImpl->mDevice, *pImage, *pMemory, 0);
+    FILAMENT_CHECK_POSTCONDITION(result == VK_SUCCESS) << "vkBindImageMemory error=" << result << ".";
+}
+
+void VulkanPlatform::describeExternalImage(void* image, VkFormat& format, uint32_t& width, uint32_t& height, uint32_t& depth, VkImageUsageFlags& usage, bool& isProtected)
+{
+    describeExternalImageOS(image, format, width, height, depth, usage, isProtected);
 }
 
 #undef SWAPCHAIN_RET_FUNC

@@ -270,11 +270,19 @@ public:
     /**
      * @return Sets up the external image based on the platform.
      */
-    void setupExternalImage(void* image) const noexcept;
+    void setupExternalImage(void* imageBuffer, void* fence, VkImage* pImage, VkDeviceMemory* pMemory) const noexcept;
+    /**
+     * @return Returns information about the external image
+     */
+    void describeExternalImage(void* image, VkFormat& format, uint32_t& width, uint32_t& height, uint32_t& depth, VkImageUsageFlags& usage, bool& isProtected);
 
 private:
     static ExtensionSet getSwapchainInstanceExtensions();
-    static void importExternalImage(void* image);
+
+    static void describeExternalImageOS(void* image, VkFormat& format, uint32_t& width, uint32_t& height, uint32_t& depth, VkImageUsageFlags& usage, bool& isProtected);
+    static uint32_t getExternalImageMemoryBits(void* externalBuffer, VkDevice device);
+    static void createExternalImage(void* externalBuffer, VkDevice device, const VkAllocationCallbacks* allocator, VkImage* pImage);
+    static void allocateExternalImage(void* externalBuffer, VkDevice device, const VkAllocationCallbacks* allocator, VkImage pImage, uint32_t memoryTypeIndex, VkDeviceMemory* pMemory);
 
     // Platform dependent helper methods
     using SurfaceBundle = std::tuple<VkSurfaceKHR, VkExtent2D>;

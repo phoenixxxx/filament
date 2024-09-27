@@ -52,6 +52,29 @@ VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanComm
       mAllocator(allocator),
       mCommands(commands) {}
 
+VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanCommands* commands, VkImage image,
+    VkDeviceMemory memory, VkFormat format, uint32_t width, uint32_t height, uint32_t depth,
+    TextureUsage tusage, VulkanStagePool& stagePool) : HwTexture(SamplerType::SAMPLER_2D, 1, 1, width, height, depth, TextureFormat::UNUSED,
+        tusage),
+    VulkanResource(VulkanResourceType::TEXTURE),
+    mVkFormat(format),
+    mViewType(imgutil::getViewType(target)),
+    mSwizzle({}),
+    mTextureImage(image),
+    mTextureImageMemory(memory),
+    mFullViewRange{
+            .aspectMask = getImageAspect(),
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+    },
+    mPrimaryViewRange(mFullViewRange),
+    mStagePool(stagePool),
+    mDevice(device),
+    mAllocator(allocator),
+    mCommands(commands) {}
+
 VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
         VulkanContext const& context, VmaAllocator allocator, VulkanCommands* commands,
         SamplerType target, uint8_t levels, TextureFormat tformat, uint8_t samples, uint32_t w,

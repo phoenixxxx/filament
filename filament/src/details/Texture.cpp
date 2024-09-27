@@ -70,6 +70,8 @@ auto make_copyable_function(F&& f) {
 }
 
 struct Texture::BuilderDetails {
+    void* mExternalFence = nullptr;
+    void* mExternalBuffer = nullptr;
     intptr_t mImportedId = 0;
     uint32_t mWidth = 1;
     uint32_t mHeight = 1;
@@ -134,6 +136,14 @@ Texture::Builder& Texture::Builder::import(intptr_t id) noexcept {
     return *this;
 }
 
+Texture::Builder& Texture::Builder::external(void* buffer, void* fence) noexcept {
+    assert_invariant(buffer);
+    assert_invariant(fence);
+    mImpl->mExternalBuffer = buffer;
+    mImpl->mExternalFence = fence;
+    return *this;
+}
+
 Texture::Builder& Texture::Builder::swizzle(Swizzle r, Swizzle g, Swizzle b, Swizzle a) noexcept {
     mImpl->mTextureIsSwizzled = true;
     mImpl->mSwizzle = { r, g, b, a };
@@ -141,6 +151,7 @@ Texture::Builder& Texture::Builder::swizzle(Swizzle r, Swizzle g, Swizzle b, Swi
 }
 
 Texture* Texture::Builder::build(Engine& engine) {
+
     FILAMENT_CHECK_PRECONDITION(Texture::isTextureFormatSupported(engine, mImpl->mFormat))
             << "Texture format " << uint16_t(mImpl->mFormat) << " not supported on this platform";
 
@@ -228,8 +239,14 @@ FTexture::FTexture(FEngine& engine, const Builder& builder) {
     mUsage = builder->mUsage;
     mTarget = builder->mTarget;
     mLevelCount = builder->mLevels;
+    mExternalBuffer = builder->mExternalBuffer;
+    mExternalFence = builder->mExternalFence;
 
-    if (UTILS_LIKELY(builder->mImportedId == 0)) {
+    if (UTILS_LIKELY(builder->mExternalBuffer != nullptr)) {
+        mHandle = driver.createExternalTexture(
+            mExternalBuffer, mExternalFence);
+    }
+    else if (UTILS_LIKELY(builder->mImportedId == 0)) {
         if (UTILS_LIKELY(!builder->mTextureIsSwizzled)) {
             mHandle = driver.createTexture(
                     mTarget, mLevelCount, mFormat, mSampleCount, mWidth, mHeight, mDepth, mUsage);

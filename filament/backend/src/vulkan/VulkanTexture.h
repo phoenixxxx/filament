@@ -44,6 +44,12 @@ struct VulkanTexture : public HwTexture, VulkanResource {
             VkFormat format, uint8_t samples, uint32_t width, uint32_t height, TextureUsage tusage,
             VulkanStagePool& stagePool, bool heapAllocated = false);
 
+    // The texture will never destroy the given VkImage, but it does manages its subresources.
+    // The texture doesn't allocate the backing memory
+    VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanCommands* commands, VkImage image,
+                  VkDeviceMemory memory, VkFormat format, uint32_t width, uint32_t height, uint32_t depth,
+                  TextureUsage tusage, VulkanStagePool& stagePool);
+
     ~VulkanTexture();
 
     // Uploads data into a subregion of a 2D or 3D texture.

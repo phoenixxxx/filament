@@ -524,6 +524,44 @@ void VulkanDriver::destroyBufferObject(Handle<HwBufferObject> boh) {
     mResourceManager.release(bufferObject);
 }
 
+void VulkanDriver::createExternalTextureR(Handle<HwTexture> th, void* buffer, void* fence) {
+    VkImage image;
+    VkDeviceMemory memory;
+    //this calls to the underlying OS specific call to turn the buffer into a VkImage and a VkDeviceMemory
+    mPlatform->setupExternalImage(buffer, fence, &image, &memory);
+
+    VkFormat format;
+    uint32_t width, height, depth;
+    VkImageUsageFlags usage;
+    bool isProtected;
+    mPlatform->describeExternalImage(buffer, format, width, height, depth, usage, isProtected);
+
+    TextureUsage tusage = TextureUsage::NONE;
+    if (usage & VK_IMAGE_USAGE_SAMPLED_BIT) {
+        tusage |= TextureUsage::SAMPLEABLE;
+    }
+    if (usage & VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT) {
+        if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+            tusage |= TextureUsage::COLOR_ATTACHMENT;
+        }
+    }
+    if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+        tusage |= TextureUsage::DEPTH_ATTACHMENT;
+        tusage |= TextureUsage::STENCIL_ATTACHMENT;
+    }
+    if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) {
+        tusage |= TextureUsage::COLOR_ATTACHMENT;
+    }
+    if (isProtected) {
+        tusage |= TextureUsage::PROTECTED;
+    }
+
+    auto vktexture = mResourceAllocator.construct<VulkanTexture>(th, mPlatform->getDevice(),
+        mAllocator, &mCommands, image, memory,
+        format, width, height, depth, tusage, mStagePool);
+    mResourceManager.acquire(vktexture);
+}
+
 void VulkanDriver::createTextureR(Handle<HwTexture> th, SamplerType target, uint8_t levels,
         TextureFormat format, uint8_t samples, uint32_t w, uint32_t h, uint32_t depth,
         TextureUsage usage) {
@@ -706,6 +744,10 @@ Handle<HwIndexBuffer> VulkanDriver::createIndexBufferS() noexcept {
 
 Handle<HwBufferObject> VulkanDriver::createBufferObjectS() noexcept {
     return mResourceAllocator.allocHandle<VulkanBufferObject>();
+}
+
+Handle<HwTexture> VulkanDriver::createExternalTextureS() noexcept {
+    return mResourceAllocator.allocHandle<VulkanTexture>();
 }
 
 Handle<HwTexture> VulkanDriver::createTextureS() noexcept {
@@ -1091,7 +1133,7 @@ void VulkanDriver::update3DImage(Handle<HwTexture> th, uint32_t level, uint32_t 
 }
 
 void VulkanDriver::setupExternalImage(void* image) {
-    mPlatform->setupExternalImage(image);
+
 }
 
 TimerQueryResult VulkanDriver::getTimerQueryValue(Handle<HwTimerQuery> tqh, uint64_t* elapsedTime) {

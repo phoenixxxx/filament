@@ -126,6 +126,8 @@ private:
     uint8_t mLevelCount = 1;
     uint8_t mSampleCount = 1;
     Usage mUsage = Usage::DEFAULT;
+    void* mExternalBuffer = nullptr;
+    void* mExternalFence = nullptr;
 };
 
 

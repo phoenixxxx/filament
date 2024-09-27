@@ -544,6 +544,10 @@ Handle<HwTexture> OpenGLDriver::createTextureSwizzledS() noexcept {
     return initHandle<GLTexture>();
 }
 
+Handle<HwTexture> OpenGLDriver::createExternalTextureS() noexcept {
+    return initHandle<GLTexture>();
+}
+
 Handle<HwTexture> OpenGLDriver::importTextureS() noexcept {
     return initHandle<GLTexture>();
 }
@@ -805,6 +809,9 @@ void OpenGLDriver::textureStorage(OpenGLDriver::GLTexture* t,
     t->depth = depth;
 }
 
+void OpenGLDriver::createExternalTextureR(Handle<HwTexture> th, void* buffer, void* fence) {
+
+}
 void OpenGLDriver::createTextureR(Handle<HwTexture> th, SamplerType target, uint8_t levels,
         TextureFormat format, uint8_t samples, uint32_t w, uint32_t h, uint32_t depth,
         TextureUsage usage) {

@@ -87,11 +87,214 @@ using namespace bluevk;
 
 namespace filament::backend {
 
-void VulkanPlatform::importExternalImage(void* image){
 #if defined(__ANDROID__)
-    //import AHB specific code
-#endif
+void GetVKFormatAndUsage(const AHardwareBuffer_Desc& desc,
+    VkFormat& format,
+    VkImageUsageFlags& usage,
+    bool& isProtected) {
+    // Refer to "11.2.17. External Memory Handle Types" in the spec, and
+    // Tables 13/14 for how the following derivation works.
+    bool is_depth_format = false;
+    isProtected = false;
+    switch (desc.format) {
+    case AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM:
+        format = VK_FORMAT_R8G8B8A8_UNORM;
+        break;
+    case AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM:
+        format = VK_FORMAT_R8G8B8A8_UNORM;
+        break;
+    case AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM:
+        format = VK_FORMAT_R8G8B8_UNORM;
+        break;
+    case AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM:
+        format = VK_FORMAT_R5G6B5_UNORM_PACK16;
+        break;
+    case AHARDWAREBUFFER_FORMAT_R16G16B16A16_FLOAT:
+        format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        break;
+    case AHARDWAREBUFFER_FORMAT_R10G10B10A2_UNORM:
+        format = VK_FORMAT_A2B10G10R10_UNORM_PACK32;
+        break;
+    case AHARDWAREBUFFER_FORMAT_D16_UNORM:
+        is_depth_format = true;
+        format = VK_FORMAT_D16_UNORM;
+        break;
+    case AHARDWAREBUFFER_FORMAT_D24_UNORM:
+        is_depth_format = true;
+        format = VK_FORMAT_X8_D24_UNORM_PACK32;
+        break;
+    case AHARDWAREBUFFER_FORMAT_D24_UNORM_S8_UINT:
+        is_depth_format = true;
+        format = VK_FORMAT_D24_UNORM_S8_UINT;
+        break;
+    case AHARDWAREBUFFER_FORMAT_D32_FLOAT:
+        is_depth_format = true;
+        format = VK_FORMAT_D32_SFLOAT;
+        break;
+    case AHARDWAREBUFFER_FORMAT_D32_FLOAT_S8_UINT:
+        is_depth_format = true;
+        format = VK_FORMAT_D32_SFLOAT_S8_UINT;
+        break;
+    case AHARDWAREBUFFER_FORMAT_S8_UINT:
+        is_depth_format = true;
+        format = VK_FORMAT_S8_UINT;
+        break;
+    default:
+        format = VK_FORMAT_UNDEFINED;
+}
+
+    // The following only concern usage flags derived from Table 14.
+    usage = 0;
+    if (desc.usage & AHARDWAREBUFFER_USAGE_GPU_SAMPLED_IMAGE) {
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
     }
+    if (desc.usage & AHARDWAREBUFFER_USAGE_GPU_FRAMEBUFFER) {
+        if (is_depth_format) {
+            usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        }
+        else {
+            usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        }
+    }
+    if (desc.usage & AHARDWAREBUFFER_USAGE_GPU_DATA_BUFFER) {
+        usage = VK_IMAGE_USAGE_STORAGE_BIT;
+    }
+    if (desc.usage & AHARDWAREBUFFER_USAGE_PROTECTED_CONTENT) {
+        isProtected = true;
+    }
+}
+#endif
+
+void VulkanPlatform::describeExternalImageOS(void* image, VkFormat& format, uint32_t& width, uint32_t& height, uint32_t& depth, VkImageUsageFlags& usage, bool& isProtected)
+{
+#if defined(__ANDROID__)
+    AHardwareBuffer* buffer = static_cast<AHardwareBuffer*>(image);
+    AHardwareBuffer_Desc buffer_desc;
+    AHardwareBuffer_describe(buffer, &buffer_desc);
+
+    GetVKFormatAndUsage(desc, format, usage, isProtected);
+
+    width = buffer_desc.width;
+    height = buffer_desc.height;
+
+    // This might not be the right translation
+    depth = buffer_desc.layers;
+#endif
+}
+uint32_t VulkanPlatform::getExternalImageMemoryBits(void* externalBuffer, VkDevice device)
+{
+    uint32_t bits = 0;
+#if defined(__ANDROID__)
+    AHardwareBuffer* buffer = static_cast<AHardwareBuffer*>(externalBuffer);
+    VkAndroidHardwareBufferFormatPropertiesANDROID format_info = {
+    .sType =
+        VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
+    .pNext = nullptr,
+    };
+    VkAndroidHardwareBufferPropertiesANDROID properties = {
+        .sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
+        .pNext = &format_info,
+    };
+    vkGetAndroidHardwareBufferPropertiesANDROID(device, buffer, &properties);
+    bits = properties.memoryTypeBits;
+#endif //__ANDROID__
+    return bits;
+}
+void VulkanPlatform::createExternalImage(void* externalBuffer, VkDevice device, const VkAllocationCallbacks* allocator, VkImage* pImage) {
+#if defined(__ANDROID__)
+    AHardwareBuffer* buffer = static_cast<AHardwareBuffer*>(externalBuffer);
+    AHardwareBuffer_Desc buffer_desc;
+    AHardwareBuffer_describe(buffer, &buffer_desc);
+
+    VkFormat format;
+    VkImageUsageFlags usage;
+    //technically we don't need the format (since whe will query it in the following APIs
+    //directly from VK). But we still need to check the format to differenciate DS from Color
+    bool isProtected;
+    GetVKFormatAndUsage(desc, format, usage, isProtected);
+
+    // All this work now is for external formats (query the underlying VK for the format)
+    VkAndroidHardwareBufferFormatPropertiesANDROID format_info = {
+        .sType =
+            VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
+        .pNext = nullptr,
+    };
+    VkAndroidHardwareBufferPropertiesANDROID properties = {
+        .sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
+        .pNext = &format_info,
+    };
+    vkGetAndroidHardwareBufferPropertiesANDROID(device, buffer, &properties);
+
+    //if external format we need to specifiy it in the allocation
+    const bool use_external_format = format_info.format == VK_FORMAT_UNDEFINED;
+
+    const VkExternalFormatANDROID external_format = {
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_FORMAT_ANDROID,
+        .pNext = nullptr,
+        .externalFormat = format_info.externalFormat,//pass down the format (external means we don't have it VK defined)
+    };
+    const VkExternalMemoryImageCreateInfo external_create_info = {
+        .sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO,
+        .pNext = use_external_format ? &external_format : nullptr,
+        .handleTypes =
+            VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID,
+    };
+
+    VkImageCreateInfo imageInfo{ .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, 0 };
+    imageInfo.pNext = &external_create_info;
+    imageInfo.format = format_info.format;
+    imageInfo.extent =
+    {
+        buffer_desc.width,
+        buffer_desc.height,
+        1u,
+    },
+    imageInfo.arrayLayers = buffer_desc.layers;
+    imageInfo.usage =
+        (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | usage);
+
+    VK_CHECK_RESULT(
+        vkCreateImage(device, &imageInfo, allocator, *pImage));
+
+#endif
+}
+void VulkanPlatform::allocateExternalImage(void* externalBuffer, VkDevice device, const VkAllocationCallbacks* allocator, VkImage pImage, uint32_t memoryTypeIndex, VkDeviceMemory* pMemory) {
+#if defined(__ANDROID__)
+    AHardwareBuffer* buffer = static_cast<AHardwareBuffer*>(externalBuffer);
+    VkAndroidHardwareBufferFormatPropertiesANDROID format_info = {
+    .sType =
+        VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_FORMAT_PROPERTIES_ANDROID,
+    .pNext = nullptr,
+    };
+    VkAndroidHardwareBufferPropertiesANDROID properties = {
+        .sType = VK_STRUCTURE_TYPE_ANDROID_HARDWARE_BUFFER_PROPERTIES_ANDROID,
+        .pNext = &format_info,
+    };
+    vkGetAndroidHardwareBufferPropertiesANDROID(device, buffer, &properties);
+
+    // Now handle the allocation
+    VkImportAndroidHardwareBufferInfoANDROID android_hardware_buffer_info = {
+        .sType = VK_STRUCTURE_TYPE_IMPORT_ANDROID_HARDWARE_BUFFER_INFO_ANDROID,
+        .pNext = nullptr,
+        .buffer = buffer,
+    };
+    VkMemoryDedicatedAllocateInfo memory_dedicated_allocate_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
+        .pNext = &android_hardware_buffer_info,
+        .image = vk_image,
+        .buffer = VK_NULL_HANDLE,
+    };
+    VkMemoryAllocateInfo alloc_info = {
+        .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+        .pNext = &memory_dedicated_allocate_info,
+        .allocationSize = properties.allocationSize,
+        .memoryTypeIndex = memoryTypeIndex };
+    result = vkAllocateMemory(device, &alloc_info, allocator, *pMemory);
+    VK_CHECK_RESULT(result);
+#endif
+ }
+
 
 VulkanPlatform::ExtensionSet VulkanPlatform::getSwapchainInstanceExtensions() {
     VulkanPlatform::ExtensionSet const ret = {
