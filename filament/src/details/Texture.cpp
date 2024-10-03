@@ -137,7 +137,7 @@ Texture::Builder& Texture::Builder::import(intptr_t id) noexcept {
     return *this;
 }
 
-Texture::Builder& Texture::Builder::external(void* buffer, void* fence) noexcept {
+Texture::Builder& Texture::Builder::external(void* UTILS_NULLABLE buffer, void* UTILS_NULLABLE fence) noexcept {
     assert_invariant(buffer);
     assert_invariant(fence);
     mImpl->mExternalBuffer = buffer;

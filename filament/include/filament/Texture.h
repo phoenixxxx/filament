@@ -266,7 +266,7 @@ public:
         * @param buffer a data backing the image, used and managed by another process
         * @param fence a fence to wait on before processing and to signal when done
         */
-        Builder & external(void* buffer, void* fence) noexcept;
+        Builder & external(void* UTILS_NULLABLE buffer, void* UTILS_NULLABLE fence) noexcept;
 
     private:
         friend class FTexture;
