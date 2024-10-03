@@ -159,7 +159,8 @@ VulkanTexture::VulkanTexture(
     mPrimaryViewRange = state->mFullViewRange;
 }
 
-VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanCommands* commands, 
+VulkanTexture::VulkanTexture(VkDevice device, VulkanContext const& context,
+    VmaAllocator allocator, VulkanCommands* commands,
     VulkanResourceAllocator* handleAllocator,
     VkImage image, VkDeviceMemory memory, VkFormat format, 
     uint32_t width, uint32_t height, uint32_t depth,

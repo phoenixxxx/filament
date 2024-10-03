@@ -111,10 +111,12 @@ struct VulkanTexture : public HwTexture, VulkanResource {
             VulkanResourceAllocator* handleAllocator,
             VulkanTexture const* src, VkComponentMapping swizzle);
 
-    // The texture will never destroy the given VkImage, but it does manages its subresources.
-    // The texture doesn't allocate the backing memory
-    VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanCommands* commands, 
-        VulkanResourceAllocator* handleAllocator, VkImage image,
+    // Contructor for creating externally backed textures
+    VulkanTexture(VkDevice device, VulkanContext const& context,
+        VmaAllocator allocator, VulkanCommands* commands,
+        VulkanResourceAllocator* handleAllocator,
+        
+        VkImage image,
         VkDeviceMemory memory, VkFormat format, uint32_t width, uint32_t height, uint32_t depth,
         TextureUsage tusage, VulkanStagePool& stagePool);
 

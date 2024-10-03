@@ -577,7 +577,8 @@ void VulkanDriver::createExternalTextureR(Handle<HwTexture> th, void* buffer, vo
     }
 
     auto vktexture = mResourceAllocator.construct<VulkanTexture>(th, mPlatform->getDevice(),
-        mAllocator, &mCommands, image, memory,
+        mContext, mAllocator, &mCommands, &mResourceAllocator,
+        image, memory,
         format, width, height, depth, tusage, mStagePool);
     mResourceManager.acquire(vktexture);
 }
