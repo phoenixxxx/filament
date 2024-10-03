@@ -250,9 +250,11 @@ FTexture::FTexture(FEngine& engine, const Builder& builder) {
         // mHandle and mHandleForSampling will be created in setExternalImage()
         // If this Texture is used for sampling before setExternalImage() is called,
         // we'll lazily create a 1x1 placeholder texture.
+        return;
+    }
+    if (mExternalBuffer != nullptr) {
         mHandle = driver.createTextureExternalImage(
             mFormat, mWidth, mHeight, mUsage, mExternalBuffer);
-        return;
     }
 
     if (UTILS_LIKELY(builder->mImportedId == 0)) {
