@@ -173,7 +173,7 @@ void VulkanPlatform::describeExternalImageOS(void* image, VkFormat& format, uint
     AHardwareBuffer_Desc buffer_desc;
     AHardwareBuffer_describe(buffer, &buffer_desc);
 
-    GetVKFormatAndUsage(desc, format, usage, isProtected);
+    GetVKFormatAndUsage(buffer_desc, format, usage, isProtected);
 
     width = buffer_desc.width;
     height = buffer_desc.height;
@@ -212,7 +212,7 @@ void VulkanPlatform::createExternalImage(void* externalBuffer, VkDevice device, 
     //technically we don't need the format (since whe will query it in the following APIs
     //directly from VK). But we still need to check the format to differenciate DS from Color
     bool isProtected;
-    GetVKFormatAndUsage(desc, format, usage, isProtected);
+    GetVKFormatAndUsage(buffer_desc, format, usage, isProtected);
 
     // All this work now is for external formats (query the underlying VK for the format)
     VkAndroidHardwareBufferFormatPropertiesANDROID format_info = {
@@ -241,7 +241,7 @@ void VulkanPlatform::createExternalImage(void* externalBuffer, VkDevice device, 
             VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID,
     };
 
-    VkImageCreateInfo imageInfo{ .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, 0 };
+    VkImageCreateInfo imageInfo{ .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, .pNext = nullptr };
     imageInfo.pNext = &external_create_info;
     imageInfo.format = format_info.format;
     imageInfo.extent =
@@ -254,9 +254,9 @@ void VulkanPlatform::createExternalImage(void* externalBuffer, VkDevice device, 
     imageInfo.usage =
         (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | usage);
 
-    VK_CHECK_RESULT(
-        vkCreateImage(device, &imageInfo, allocator, *pImage));
-
+    VkResult const result = 
+        vkCreateImage(device, &imageInfo, allocator, pImage);
+    FILAMENT_CHECK_POSTCONDITION(result == VK_SUCCESS);
 #endif
 }
 void VulkanPlatform::allocateExternalImage(void* externalBuffer, VkDevice device, const VkAllocationCallbacks* allocator, VkImage pImage, uint32_t memoryTypeIndex, VkDeviceMemory* pMemory) {
@@ -282,7 +282,7 @@ void VulkanPlatform::allocateExternalImage(void* externalBuffer, VkDevice device
     VkMemoryDedicatedAllocateInfo memory_dedicated_allocate_info = {
         .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
         .pNext = &android_hardware_buffer_info,
-        .image = vk_image,
+        .image = pImage,
         .buffer = VK_NULL_HANDLE,
     };
     VkMemoryAllocateInfo alloc_info = {
@@ -290,8 +290,9 @@ void VulkanPlatform::allocateExternalImage(void* externalBuffer, VkDevice device
         .pNext = &memory_dedicated_allocate_info,
         .allocationSize = properties.allocationSize,
         .memoryTypeIndex = memoryTypeIndex };
-    result = vkAllocateMemory(device, &alloc_info, allocator, *pMemory);
-    VK_CHECK_RESULT(result);
+    VkResult const result = 
+        vkAllocateMemory(device, &alloc_info, allocator, pMemory);
+    FILAMENT_CHECK_POSTCONDITION(result == VK_SUCCESS);
 #endif
  }
 
