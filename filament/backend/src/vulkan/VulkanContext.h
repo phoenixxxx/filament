@@ -147,10 +147,13 @@ public:
         return mPhysicalDeviceFeatures.features.shaderClipDistance == VK_TRUE;
     }
 
+    inline bool isLazilyAllocatedMemorySupported() const noexcept {
+        return mLazilyAllocatedMemorySupported;
+    }
+
     inline bool isProtectedMemorySupported() const noexcept {
         return mProtectedMemorySupported;
     }
-
 
 private:
     VkPhysicalDeviceMemoryProperties mMemoryProperties = {};
@@ -163,6 +166,7 @@ private:
     bool mDebugMarkersSupported = false;
     bool mDebugUtilsSupported = false;
     bool mMultiviewEnabled = false;
+    bool mLazilyAllocatedMemorySupported = false;
     bool mProtectedMemorySupported = false;
 
     VkFormatList mDepthStencilFormats;
