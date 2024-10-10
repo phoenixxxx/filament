@@ -1279,7 +1279,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             if (UTILS_LIKELY(boundSampler->t)) {
                 VulkanTexture* texture
                     = mResourceAllocator.handle_cast<VulkanTexture*>(boundSampler->t);
-                mIsContentProtected |= texture->getProtected();
+                mIsContentProtected |= texture->getIsProtected();
             }
         }
     }
