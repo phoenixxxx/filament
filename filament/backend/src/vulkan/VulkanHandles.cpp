@@ -273,8 +273,6 @@ VulkanRenderTarget::VulkanRenderTarget(VkDevice device, VkPhysicalDevice physica
     }
     mDepth = depthStencil[0];
     VulkanTexture* depthTexture = (VulkanTexture*) mDepth.texture;
-    // largely unecessary but for completeness
-    mProtected |= depthTexture->getIsProtected();
 
     if (samples == 1) {
         return;
@@ -316,6 +314,9 @@ VulkanRenderTarget::VulkanRenderTarget(VkDevice device, VkPhysicalDevice physica
     if (!depthTexture) {
         return;
     }
+
+    // largely unecessary but for completeness
+    mProtected |= depthTexture->getIsProtected();
 
     // There is no need for sidecar depth if the depth texture is already MSAA.
     if (depthTexture->samples > 1) {
