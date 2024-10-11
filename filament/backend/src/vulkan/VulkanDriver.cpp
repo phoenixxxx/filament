@@ -1243,8 +1243,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
     // passes, due to multiple views.
     TargetBufferFlags discardStart = params.flags.discardStart;
 
-    // By default rendering to a render target isn't protected
-    mIsRenderPassProtected = false;
+    mIsRenderPassProtected = rt->isProtected();
     if (rt->isSwapChain()) {
         VulkanSwapChain* sc = mCurrentSwapChain;
         assert_invariant(sc);
@@ -1253,7 +1252,7 @@ void VulkanDriver::beginRenderPass(Handle<HwRenderTarget> rth, const RenderPassP
             sc->markFirstRenderPass();
         }
 
-        mIsRenderPassProtected = sc->isProtected();
+        mIsRenderPassProtected |= sc->isProtected();
     }
 
     VulkanAttachment depth = rt->getSamples() == 1 ? rt->getDepth() : rt->getMsaaDepth();
