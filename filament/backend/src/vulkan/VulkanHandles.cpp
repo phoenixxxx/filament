@@ -267,7 +267,9 @@ VulkanRenderTarget::VulkanRenderTarget(VkDevice device, VkPhysicalDevice physica
     mProtected = false;
     for (int index = 0; index < MRT::MAX_SUPPORTED_RENDER_TARGET_COUNT; index++) {
         mColor[index] = color[index];
-        mProtected |= color[index].texture->getIsProtected();
+        if (color[index].texture) {
+            mProtected |= color[index].texture->getIsProtected();
+        }
     }
     mDepth = depthStencil[0];
     VulkanTexture* depthTexture = (VulkanTexture*) mDepth.texture;
