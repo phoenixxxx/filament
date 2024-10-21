@@ -161,7 +161,6 @@ private:
     struct {
         using AttachmentArray = CappedArray<VulkanAttachment, MAX_RENDERTARGET_ATTACHMENT_TEXTURES>;
         AttachmentArray attachments;
-        bool hasColorResolve = false;
     } mRenderPassFboInfo = {};
 
     bool const mIsSRGBSwapChainSupported;

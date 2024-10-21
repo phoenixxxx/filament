@@ -34,8 +34,8 @@ class VulkanResourceAllocator;
 
 struct VulkanTextureState : public VulkanResource {
     VulkanTextureState(VkDevice device, VmaAllocator allocator, VulkanCommands* commands,
-            VulkanStagePool& stagePool,
-            VkFormat format, VkImageViewType viewType, uint8_t levels, uint8_t layerCount,
+            VulkanStagePool& stagePool, VkFormat format, VkImageViewType viewType, uint8_t levels,
+            uint8_t layerCount, VulkanLayout defaultLayout,
             bool isProtected = false);
 
     struct ImageViewKey {
@@ -68,8 +68,8 @@ struct VulkanTextureState : public VulkanResource {
     VkFormat const mVkFormat;
     VkImageViewType const mViewType;
     VkImageSubresourceRange const mFullViewRange;
-
     VkImage mTextureImage = VK_NULL_HANDLE;
+    VulkanLayout mDefaultLayout;
 
     bool mIsProtected = false;
 
@@ -81,7 +81,6 @@ struct VulkanTextureState : public VulkanResource {
     VkDevice mDevice;
     VmaAllocator mAllocator;
     VulkanCommands* mCommands;
-    std::shared_ptr<VulkanCmdFence> mTransitionFence;
     bool mIsTransientAttachment;
 };
 
@@ -145,6 +144,10 @@ struct VulkanTexture : public HwTexture, VulkanResource {
         return getLayout(mPrimaryViewRange.baseArrayLayer, mPrimaryViewRange.baseMipLevel);
     }
 
+    // Returns the layout for the intended use of this texture (and not the expected layout at the
+    // time of the call.
+    VulkanLayout getDefaultLayout() const;
+
     // Gets or creates a cached VkImageView for a single subresource that can be used as a render
     // target attachment.  Unlike the primary image view, this always has type VK_IMAGE_VIEW_TYPE_2D
     // and the identity swizzle.
@@ -191,11 +194,11 @@ struct VulkanTexture : public HwTexture, VulkanResource {
         return state->mIsProtected;
     }
 
-    bool transitionLayout(VulkanCommandBuffer* commands, const VkImageSubresourceRange& range,
+    bool transitionLayout(VulkanCommandBuffer* commands, VkImageSubresourceRange const& range,
             VulkanLayout newLayout);
 
-    bool transitionLayout(VkCommandBuffer cmdbuf, std::shared_ptr<VulkanCmdFence> fence,
-            VkImageSubresourceRange const& range, VulkanLayout newLayout);
+    bool transitionLayout(VkCommandBuffer cmdbuf, VkImageSubresourceRange const& range,
+            VulkanLayout newLayout);
 
     void attachmentToSamplerBarrier(VulkanCommandBuffer* commands,
             VkImageSubresourceRange const& range);
@@ -210,13 +213,6 @@ struct VulkanTexture : public HwTexture, VulkanResource {
     // For implicit transition like the end of a render pass, we need to be able to set the layout
     // manually (outside of calls to transitionLayout).
     void setLayout(VkImageSubresourceRange const& range, VulkanLayout newLayout);
-
-    bool transitionReady() {
-        VulkanTextureState* state = getSharedState();
-        auto res = !state->mTransitionFence || state->mTransitionFence->getStatus() == VK_SUCCESS;
-        state->mTransitionFence.reset();
-        return res;
-    }
 
 #if FVK_ENABLED(FVK_DEBUG_TEXTURE)
     void print() const;
