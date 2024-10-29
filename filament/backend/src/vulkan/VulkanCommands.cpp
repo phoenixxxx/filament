@@ -255,7 +255,7 @@ VulkanCommandBuffer& VulkanCommands::getProtected() {
     assert_invariant(mProtectedQueue != VK_NULL_HANDLE);
 
     if (mProtectedPool == VK_NULL_HANDLE) {
-        mProtectedPool = createPool(mDevice, mProtectedQueueFamilyIndex);
+        mProtectedPool = createPool(mDevice, mProtectedQueueFamilyIndex, true);
         VkSemaphoreCreateInfo sci{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
         for (auto& semaphore : mProtectedSubmissionSignals) {
             vkCreateSemaphore(mDevice, &sci, nullptr, &semaphore);
