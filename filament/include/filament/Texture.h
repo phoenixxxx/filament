@@ -261,6 +261,15 @@ public:
          */
         Builder& import(intptr_t id) noexcept;
 
+        /**
+         * Specify a native buffer to import as a Filament texture.
+         *
+         * @param buffer an OS specific external buffer
+         *
+         * @return This Builder, for chaining calls.
+         */
+        Builder & import(void* UTILS_NONNULL buffer) noexcept;
+
     private:
         friend class FTexture;
     };

@@ -72,6 +72,7 @@ auto make_copyable_function(F&& f) {
 
 struct Texture::BuilderDetails {
     intptr_t mImportedId = 0;
+    void* mExternalBuffer = nullptr;
     uint32_t mWidth = 1;
     uint32_t mHeight = 1;
     uint32_t mDepth = 1;
@@ -133,6 +134,12 @@ Texture::Builder& Texture::Builder::usage(Texture::Usage usage) noexcept {
 Texture::Builder& Texture::Builder::import(intptr_t id) noexcept {
     assert_invariant(id); // imported id can't be zero
     mImpl->mImportedId = id;
+    return *this;
+}
+
+Texture::Builder & Texture::Builder::import(void* buffer) noexcept {
+    assert_invariant(buffer); // imported buffer can't be zero
+    mImpl->mExternalBuffer = buffer;
     return *this;
 }
 
