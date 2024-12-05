@@ -528,6 +528,15 @@ public:
             PixelBufferDescriptor&& buffer, const FaceOffsets& faceOffsets,
             PrefilterOptions const* UTILS_NULLABLE options = nullptr);
 
+    /**
+     * Notifies Filament that an external image has seen its data space (or any other such info) changed
+     *
+     * @param engine        Engine this texture is associated to.
+     * @param image         An opaque handle to a platform specific image. Supported types are
+     *                      AHardwareBuffer on Android and CVPixelBufferRef on iOS.
+     */
+    void externalBufferUpdated(Engine& engine, void* UTILS_NONNULL image) noexcept;
+
 
     /** @deprecated */
     struct FaceOffsets {

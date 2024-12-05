@@ -96,4 +96,8 @@ void Texture::generatePrefilterMipmap(Engine& engine, Texture::PixelBufferDescri
     downcast(this)->generatePrefilterMipmap(downcast(engine), std::move(buffer), faceOffsets, options);
 }
 
+void Texture::externalBufferUpdated(Engine& engine, void* image) noexcept {
+
+}
+
 } // namespace filament
