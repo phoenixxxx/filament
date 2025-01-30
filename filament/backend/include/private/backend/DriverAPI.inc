@@ -273,6 +273,11 @@ DECL_DRIVER_API_R_N(backend::SwapChainHandle, createSwapChainHeadless,
 
 DECL_DRIVER_API_R_0(backend::TimerQueryHandle, createTimerQuery)
 
+DECL_DRIVER_API_R_N(backend::DescriptorSetLayoutHandle, createDescriptorSetLayoutImmutable,
+        backend::DescriptorSetLayout&&, info,
+        backend::TextureHandle, th,
+        SamplerParams, params)
+
 DECL_DRIVER_API_R_N(backend::DescriptorSetLayoutHandle, createDescriptorSetLayout,
         backend::DescriptorSetLayout&&, info)
 

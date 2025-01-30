@@ -202,7 +202,7 @@ struct Equal {
 
 template<typename Bitmask>
 uint32_t createBindings(VkDescriptorSetLayoutBinding* toBind, uint32_t count, VkDescriptorType type,
-        Bitmask const& mask) {
+        Bitmask const& mask, VkSampler pImmutableSampler) {
     Bitmask alreadySeen;
     mask.forEachSetBit([&](size_t index) {
         VkShaderStageFlags stages = 0;
@@ -227,27 +227,35 @@ uint32_t createBindings(VkDescriptorSetLayoutBinding* toBind, uint32_t count, Vk
                 .descriptorType = type,
                 .descriptorCount = 1,
                 .stageFlags = stages,
+                .pImmutableSamplers = pImmutableSampler ? &pImmutableSampler : nullptr,
             };
         }
     });
     return count;
 }
 
-inline VkDescriptorSetLayout createLayout(VkDevice device, BitmaskGroup const& bitmaskGroup) {
+inline VkDescriptorSetLayout createLayout(VkDevice device, BitmaskGroup const& bitmaskGroup,
+        VkSampler pImmutableSampler) {
     // Note that the following *needs* to be static so that VkDescriptorSetLayoutCreateInfo will not
     // refer to stack memory.
     VkDescriptorSetLayoutBinding toBind[VulkanDescriptorSetLayout::MAX_BINDINGS];
     uint32_t count = 0;
 
     count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
-            bitmaskGroup.dynamicUbo);
-    count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, bitmaskGroup.ubo);
+            bitmaskGroup.dynamicUbo, nullptr);
+    count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, bitmaskGroup.ubo,
+            nullptr);
     count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            bitmaskGroup.sampler);
+            bitmaskGroup.sampler, nullptr);
+    uint32_t countBefore = count;
+    count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            bitmaskGroup.samplerExternal, pImmutableSampler);
+    assert_invariant((count-countBefore) <= 1 && "We support only one external sampler per set.");
     count = createBindings(toBind, count, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
-            bitmaskGroup.inputAttachment);
+            bitmaskGroup.inputAttachment, nullptr);
 
     assert_invariant(count != 0 && "Need at least one binding for descriptor set layout.");
+
     VkDescriptorSetLayoutCreateInfo dlinfo = {
             .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
             .pNext = nullptr,
@@ -329,7 +337,16 @@ public:
         if (auto itr = mVkLayouts.find(bitmasks); itr != mVkLayouts.end()) {
             return itr->second;
         }
-        auto vklayout = createLayout(mDevice, bitmasks);
+        auto vklayout = createLayout(mDevice, bitmasks, nullptr);
+        mVkLayouts[bitmasks] = vklayout;
+        return vklayout;
+    }
+    VkDescriptorSetLayout getVkLayout(VulkanDescriptorSetLayout::Bitmask const& bitmasks,
+            fvkmemory::resource_ptr<VulkanTexture> texture, VkSampler sampler) {
+        if (auto itr = mVkLayouts.find(bitmasks); itr != mVkLayouts.end()) {
+            return itr->second;
+        }
+        auto vklayout = createLayout(mDevice, bitmasks, sampler);
         mVkLayouts[bitmasks] = vklayout;
         return vklayout;
     }
@@ -497,6 +514,10 @@ fvkmemory::resource_ptr<VulkanDescriptorSet> VulkanDescriptorSetManager::createS
 void VulkanDescriptorSetManager::initVkLayout(
         fvkmemory::resource_ptr<VulkanDescriptorSetLayout> layout) {
     layout->setVkLayout(mLayoutManager->getVkLayout(layout->bitmask));
+}
+void VulkanDescriptorSetManager::initVkLayout(fvkmemory::resource_ptr<VulkanDescriptorSetLayout> layout, 
+        fvkmemory::resource_ptr<VulkanTexture> texture, VkSampler sampler) noexcept {
+    layout->setVkLayout(mLayoutManager->getVkLayout(layout->bitmask, texture, sampler));
 }
 
 void VulkanDescriptorSetManager::clearHistory() {

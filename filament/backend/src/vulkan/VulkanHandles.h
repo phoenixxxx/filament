@@ -70,6 +70,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
         UniformBufferBitmask ubo;         // 8 bytes
         UniformBufferBitmask dynamicUbo;  // 8 bytes
         SamplerBitmask sampler;           // 8 bytes
+        SamplerBitmask samplerExternal;           // 8 bytes
         InputAttachmentBitmask inputAttachment; // 8 bytes
 
         bool operator==(Bitmask const& right) const {
@@ -77,7 +78,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
                    inputAttachment == right.inputAttachment;
         }
     };
-    static_assert(sizeof(Bitmask) == 32);
+    static_assert(sizeof(Bitmask) == 40);
 
     // This is a convenience struct to quickly check layout compatibility in terms of descriptor set
     // pools.
@@ -85,6 +86,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
         uint32_t ubo = 0;
         uint32_t dynamicUbo = 0;
         uint32_t sampler = 0;
+        uint32_t samplerExternal = 0;
         uint32_t inputAttachment = 0;
 
         inline uint32_t total() const {
@@ -93,7 +95,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
 
         bool operator==(Count const& right) const noexcept {
             return ubo == right.ubo && dynamicUbo == right.dynamicUbo && sampler == right.sampler &&
-                   inputAttachment == right.inputAttachment;
+                sampler == right.sampler && inputAttachment == right.inputAttachment;
         }
 
         static inline Count fromLayoutBitmask(Bitmask const& mask) {
@@ -101,6 +103,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
                 .ubo = collapsedCount(mask.ubo),
                 .dynamicUbo = collapsedCount(mask.dynamicUbo),
                 .sampler = collapsedCount(mask.sampler),
+                .samplerExternal = collapsedCount(mask.samplerExternal),
                 .inputAttachment = collapsedCount(mask.inputAttachment),
             };
         }
@@ -112,12 +115,13 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
             ret.ubo = ubo * mult;
             ret.dynamicUbo = dynamicUbo * mult;
             ret.sampler = sampler * mult;
+            ret.samplerExternal = samplerExternal * mult;
             ret.inputAttachment = inputAttachment * mult;
             return ret;
         }
     };
 
-    VulkanDescriptorSetLayout(DescriptorSetLayout const& layout);
+    VulkanDescriptorSetLayout(DescriptorSetLayout const& layout, bool);
 
     ~VulkanDescriptorSetLayout() = default;
 

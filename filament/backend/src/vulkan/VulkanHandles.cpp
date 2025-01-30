@@ -75,7 +75,7 @@ inline VkShaderStageFlags getVkStage(backend::ShaderStage stage) {
 }
 
 using BitmaskGroup = VulkanDescriptorSetLayout::Bitmask;
-BitmaskGroup fromBackendLayout(DescriptorSetLayout const& layout) {
+BitmaskGroup fromBackendLayout(DescriptorSetLayout const& layout, bool samplerExternalAllowed) {
     BitmaskGroup mask;
     for (auto const& binding: layout.bindings) {
         switch (binding.type) {
@@ -89,6 +89,10 @@ BitmaskGroup fromBackendLayout(DescriptorSetLayout const& layout) {
             }
             // TODO: properly handle external sampler
             case DescriptorType::SAMPLER_EXTERNAL:
+                if (samplerExternalAllowed == false) {
+                    PANIC_POSTCONDITION("Sampler external not allowed on DescriptorSet");
+                    break;
+                }
             case DescriptorType::SAMPLER: {
                 fromStageFlags(binding.stageFlags, binding.binding, mask.sampler);
                 break;
@@ -136,9 +140,10 @@ void VulkanDescriptorSet::acquire(fvkmemory::resource_ptr<VulkanBufferObject> ob
     mResources.push_back(obj);
 }
 
-VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(DescriptorSetLayout const& layout)
-    : bitmask(fromBackendLayout(layout)),
-      count(Count::fromLayoutBitmask(bitmask)) {}
+VulkanDescriptorSetLayout::VulkanDescriptorSetLayout(DescriptorSetLayout const& layout,
+        bool samplerExternalAllowed)
+    : bitmask(fromBackendLayout(layout, samplerExternalAllowed)),
+    count(Count::fromLayoutBitmask(bitmask)) {}
 
 PushConstantDescription::PushConstantDescription(backend::Program const& program) noexcept {
     mRangeCount = 0;

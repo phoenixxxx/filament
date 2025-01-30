@@ -612,6 +612,10 @@ Handle<HwTimerQuery> OpenGLDriver::createTimerQueryS() noexcept {
     return initHandle<GLTimerQuery>();
 }
 
+Handle<HwDescriptorSetLayout> OpenGLDriver::createDescriptorSetLayoutImmutableS() noexcept {
+    return initHandle<GLDescriptorSetLayout>();
+}
+
 Handle<HwDescriptorSetLayout> OpenGLDriver::createDescriptorSetLayoutS() noexcept {
     return initHandle<GLDescriptorSetLayout>();
 }
@@ -1745,6 +1749,13 @@ void OpenGLDriver::createTimerQueryR(Handle<HwTimerQuery> tqh, int) {
     DEBUG_MARKER()
     GLTimerQuery* tq = handle_cast<GLTimerQuery*>(tqh);
     mContext.createTimerQuery(tq);
+}
+
+void OpenGLDriver::createDescriptorSetLayoutImmutableR(Handle<HwDescriptorSetLayout> dslh,
+    backend::DescriptorSetLayout&& info,
+    backend::TextureHandle th,
+    SamplerParams params) {
+    DEBUG_MARKER()
 }
 
 void OpenGLDriver::createDescriptorSetLayoutR(Handle<HwDescriptorSetLayout> dslh,

@@ -739,9 +739,20 @@ void VulkanDriver::createTimerQueryR(Handle<HwTimerQuery> tqh, int) {
     // nothing to do, timer query was constructed in createTimerQueryS
 }
 
+void VulkanDriver::createDescriptorSetLayoutImmutableR(Handle<HwDescriptorSetLayout> dslh,
+        backend::DescriptorSetLayout&& info,
+        backend::TextureHandle th,
+        SamplerParams params) {
+    auto layout = resource_ptr<VulkanDescriptorSetLayout>::make(&mResourceManager, dslh, info, true);
+    auto texture = resource_ptr<VulkanTexture>::cast(&mResourceManager, th);
+    VkSampler const vksampler = mSamplerCache.getSampler(params);
+    mDescriptorSetManager.initVkLayout(layout, texture, vksampler);
+    layout.inc();
+}
+
 void VulkanDriver::createDescriptorSetLayoutR(Handle<HwDescriptorSetLayout> dslh,
         backend::DescriptorSetLayout&& info) {
-    auto layout = resource_ptr<VulkanDescriptorSetLayout>::make(&mResourceManager, dslh, info);
+    auto layout = resource_ptr<VulkanDescriptorSetLayout>::make(&mResourceManager, dslh, info, false);
     mDescriptorSetManager.initVkLayout(layout);
     layout.inc();
 }
@@ -833,6 +844,10 @@ Handle<HwTimerQuery> VulkanDriver::createTimerQueryS() noexcept {
             mTimestamps->getNextQuery());
     query.inc();
     return Handle<VulkanTimerQuery>(query.id());
+}
+
+Handle<HwDescriptorSetLayout> VulkanDriver::createDescriptorSetLayoutImmutableS() noexcept {
+    return mResourceManager.allocHandle<VulkanDescriptorSetLayout>();
 }
 
 Handle<HwDescriptorSetLayout> VulkanDriver::createDescriptorSetLayoutS() noexcept {

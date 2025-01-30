@@ -74,6 +74,8 @@ public:
             fvkmemory::resource_ptr<VulkanDescriptorSetLayout> layout);
 
     void initVkLayout(fvkmemory::resource_ptr<VulkanDescriptorSetLayout> layout);
+    void initVkLayout(fvkmemory::resource_ptr<VulkanDescriptorSetLayout> layout,
+            fvkmemory::resource_ptr<VulkanTexture> texture, VkSampler sampler) noexcept;
 
     void clearHistory();
 
