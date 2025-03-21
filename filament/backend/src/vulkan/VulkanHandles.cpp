@@ -56,63 +56,62 @@ void clampToFramebuffer(VkRect2D* rect, uint32_t fbWidth, uint32_t fbHeight) {
 
 template<typename Bitmask>
 inline void fromStageFlags(backend::ShaderStageFlags stage, descriptor_binding_t binding,
-    Bitmask& mask) {
-    if ((bool)(stage & ShaderStageFlags::VERTEX)) {
+        Bitmask& mask) {
+    if ((bool) (stage & ShaderStageFlags::VERTEX)) {
         mask.set(binding + fvkutils::getVertexStageShift<Bitmask>());
     }
-    if ((bool)(stage & ShaderStageFlags::FRAGMENT)) {
+    if ((bool) (stage & ShaderStageFlags::FRAGMENT)) {
         mask.set(binding + fvkutils::getFragmentStageShift<Bitmask>());
     }
 }
 
 inline VkShaderStageFlags getVkStage(backend::ShaderStage stage) {
     switch (stage) {
-    case backend::ShaderStage::VERTEX:
-        return VK_SHADER_STAGE_VERTEX_BIT;
-    case backend::ShaderStage::FRAGMENT:
-        return VK_SHADER_STAGE_FRAGMENT_BIT;
-    case backend::ShaderStage::COMPUTE:
-        PANIC_POSTCONDITION("Unsupported stage");
+        case backend::ShaderStage::VERTEX:
+            return VK_SHADER_STAGE_VERTEX_BIT;
+        case backend::ShaderStage::FRAGMENT:
+            return VK_SHADER_STAGE_FRAGMENT_BIT;
+        case backend::ShaderStage::COMPUTE:
+            PANIC_POSTCONDITION("Unsupported stage");
     }
 }
 
 using BitmaskGroup = VulkanDescriptorSetLayout::Bitmask;
 BitmaskGroup fromBackendLayout(DescriptorSetLayout const& layout) {
     BitmaskGroup mask;
-    for (auto const& binding : layout.bindings) {
+    for (auto const& binding: layout.bindings) {
         switch (binding.type) {
-        case DescriptorType::UNIFORM_BUFFER: {
-            if ((binding.flags & DescriptorFlags::DYNAMIC_OFFSET) != DescriptorFlags::NONE) {
-                fromStageFlags(binding.stageFlags, binding.binding, mask.dynamicUbo);
+            case DescriptorType::UNIFORM_BUFFER: {
+                if ((binding.flags & DescriptorFlags::DYNAMIC_OFFSET) != DescriptorFlags::NONE) {
+                    fromStageFlags(binding.stageFlags, binding.binding, mask.dynamicUbo);
+                } else {
+                    fromStageFlags(binding.stageFlags, binding.binding, mask.ubo);
+                }
+                break;
             }
-            else {
-                fromStageFlags(binding.stageFlags, binding.binding, mask.ubo);
+            // TODO: properly handle external sampler
+            case DescriptorType::SAMPLER_EXTERNAL:
+            case DescriptorType::SAMPLER: {
+                fromStageFlags(binding.stageFlags, binding.binding, mask.sampler);
+                break;
             }
-            break;
-        }
-                                           // TODO: properly handle external sampler
-        case DescriptorType::SAMPLER_EXTERNAL:
-        case DescriptorType::SAMPLER: {
-            fromStageFlags(binding.stageFlags, binding.binding, mask.sampler);
-            break;
-        }
-        case DescriptorType::INPUT_ATTACHMENT: {
-            fromStageFlags(binding.stageFlags, binding.binding, mask.inputAttachment);
-            break;
-        }
-        case DescriptorType::SHADER_STORAGE_BUFFER:
-            PANIC_POSTCONDITION("Shader storage is not supported");
-            break;
+            case DescriptorType::INPUT_ATTACHMENT: {
+                fromStageFlags(binding.stageFlags, binding.binding, mask.inputAttachment);
+                break;
+            }
+            case DescriptorType::SHADER_STORAGE_BUFFER:
+                PANIC_POSTCONDITION("Shader storage is not supported");
+                break;
         }
     }
     return mask;
 }
 
 fvkmemory::resource_ptr<VulkanTexture> initMsaaTexture(
-    fvkmemory::resource_ptr<VulkanTexture> texture, VkDevice device,
-    VkPhysicalDevice physicalDevice, VulkanContext const& context, VmaAllocator allocator,
-    VulkanCommands* commands, fvkmemory::ResourceManager* resManager, uint8_t levels,
-    uint8_t samples, VulkanStagePool& stagePool) {
+        fvkmemory::resource_ptr<VulkanTexture> texture, VkDevice device,
+        VkPhysicalDevice physicalDevice, VulkanContext const& context, VmaAllocator allocator,
+        VulkanCommands* commands, fvkmemory::ResourceManager* resManager, uint8_t levels,
+        uint8_t samples, VulkanStagePool& stagePool) {
     assert_invariant(texture);
     auto msTexture = texture->getSidecar();
     if (UTILS_UNLIKELY(!msTexture)) {
