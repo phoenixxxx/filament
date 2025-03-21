@@ -216,7 +216,7 @@ VulkanDriver::VulkanDriver(VulkanPlatform* platform, VulkanContext const& contex
       mPipelineCache(mPlatform->getDevice()),
       mStagePool(mAllocator, &mCommands),
       mFramebufferCache(mPlatform->getDevice()),
-      mSamplerCache(mPlatform->getDevice()),
+      mSamplerCache(mPlatform),
       mBlitter(mPlatform->getPhysicalDevice(), &mCommands),
       mReadPixels(mPlatform->getDevice()),
       mDescriptorSetManager(mPlatform->getDevice(), &mResourceManager),
@@ -420,7 +420,18 @@ void VulkanDriver::updateDescriptorSetTexture(
     auto set = resource_ptr<VulkanDescriptorSet>::cast(&mResourceManager, dsh);
     auto texture = resource_ptr<VulkanTexture>::cast(&mResourceManager, th);
 
-    VkSampler const vksampler = mSamplerCache.getSampler(params);
+    auto layout = set->getLayout();
+
+    VkSampler vksampler;
+    if (texture->isExternalSampler()) {
+        const auto& metaData = layout->getConstantSamplerData(binding);
+        texture->setExternalFormatSamplerChroma(metaData.YcbcrConversion);
+        texture->setExternalFormatSamplerParams(metaData.samplerParams);
+        vksampler = mSamplerCache.getSampler(metaData);
+    } else {
+        vksampler = mSamplerCache.getSampler(
+                backend::SamplerMetaData(params));
+    }
     mDescriptorSetManager.updateSampler(set, binding, texture, vksampler);
 }
 
@@ -587,10 +598,11 @@ void VulkanDriver::createTextureExternalImage2R(Handle<HwTexture> th, backend::S
     const auto& data =
             mPlatform->createExternalImageData(externalImage, metadata, memoryTypeIndex, vkUsage);
 
+    // Note that the spec says that metadata.externalFormat means invalid (ie: not external) 
     auto texture = resource_ptr<VulkanTexture>::make(&mResourceManager, th, mPlatform->getDevice(),
-            mAllocator, &mResourceManager, &mCommands, data.first, data.second, metadata.format,
-            metadata.samples, metadata.width, metadata.height, metadata.layerCount, usage,
-            mStagePool);
+            mAllocator, mPlatform, &mResourceManager, &mCommands, data.first, data.second,
+            metadata.format, metadata.externalFormat, metadata.samples, metadata.width,
+            metadata.height, metadata.layerCount, usage, mStagePool);
 
     texture.inc();
 }

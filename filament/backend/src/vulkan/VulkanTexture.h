@@ -34,14 +34,15 @@ namespace filament::backend {
 struct VulkanTextureState : public fvkmemory::Resource {
     VulkanTextureState(VkDevice device, VmaAllocator allocator, VulkanCommands* commands,
             VulkanStagePool& stagePool, VkFormat format, VkImageViewType viewType, uint8_t levels,
-            uint8_t layerCount, VulkanLayout defaultLayout, bool isProtected);
-
+            uint8_t layerCount, VulkanLayout defaultLayout, bool isProtected, uint32_t externalFormat);
     ~VulkanTextureState();
 
     struct ImageViewKey {
         VkImageSubresourceRange range;  // 4 * 5 bytes
         VkImageViewType type;           // 4 bytes
         VkComponentMapping swizzle;     // 4 * 4 bytes
+
+        backend::SamplerMetaData externalSampler; // 3 * 4 bytes
 
         bool operator==(ImageViewKey const& k2) const {
             auto const& k1 = *this;
@@ -55,7 +56,7 @@ struct VulkanTextureState : public fvkmemory::Resource {
         }
     };
     // No implicit padding allowed due to it being a hash key.
-    static_assert(sizeof(ImageViewKey) == 40);
+    static_assert(sizeof(ImageViewKey) == 52);
 
     using ImageViewHash = utils::hash::MurmurHashFn<ImageViewKey>;
 
@@ -71,6 +72,9 @@ struct VulkanTextureState : public fvkmemory::Resource {
 
     bool mIsProtected = false;
 
+    // Meta data for the external sampler case
+    backend::SamplerMetaData mExternalSampler;
+
     // Track the image layout of each subresource using a sparse range map.
     utils::RangeMap<uint32_t, VulkanLayout> mSubresourceLayouts;
 
@@ -82,6 +86,8 @@ struct VulkanTextureState : public fvkmemory::Resource {
     bool mIsTransientAttachment;
 };
 
+class VulkanPlatform;
+
 struct VulkanTexture : public HwTexture, fvkmemory::Resource {
     // Standard constructor for user-facing textures.
     VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice, VulkanContext const& context,
@@ -92,9 +98,10 @@ struct VulkanTexture : public HwTexture, fvkmemory::Resource {
 
     // Specialized constructor for internally created textures (e.g. from a swap chain)
     // The texture will never destroy the given VkImage, but it does manages its subresources.
-    VulkanTexture(VkDevice device, VmaAllocator allocator,
+    VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanPlatform* platform,
             fvkmemory::ResourceManager* resourceManager, VulkanCommands* commands, VkImage image,
-            VkDeviceMemory memory, VkFormat format, uint8_t samples, uint32_t width, uint32_t height, uint32_t depth,
+            VkDeviceMemory memory, VkFormat format, uint32_t internalFormat, uint8_t samples,
+            uint32_t width, uint32_t height, uint32_t depth,
             TextureUsage tusage, VulkanStagePool& stagePool);
 
     // Constructor for creating a texture view for wrt specific mip range
@@ -120,6 +127,25 @@ struct VulkanTexture : public HwTexture, fvkmemory::Resource {
 
     VkImageViewType getViewType() const {
         return mState->mViewType;
+    }
+
+    bool isExternalSampler() const {
+        return getExternalFormat() != backend::EXTERNAL_SAMPLER_FORMAT_INVALID;
+    }
+    uint32_t getExternalFormat() const { 
+        return mState->mExternalSampler.externalFormat;
+    }
+    backend::SamplerParams getExternalFormatSamplerParams() const {
+        return mState->mExternalSampler.samplerParams;
+    }
+    backend::SamplerYcbcrConversion getExternalFormatSamplerChroma() const {
+        return mState->mExternalSampler.YcbcrConversion;
+    }
+    void setExternalFormatSamplerParams(backend::SamplerParams params) {
+        mState->mExternalSampler.samplerParams = params;
+    }
+    void setExternalFormatSamplerChroma(backend::SamplerYcbcrConversion conversion) {
+        mState->mExternalSampler.YcbcrConversion = conversion;
     }
 
     VkImageSubresourceRange const& getPrimaryViewRange() const { return mPrimaryViewRange; }
@@ -212,6 +238,9 @@ private:
     VkImageSubresourceRange mPrimaryViewRange;
 
     VkComponentMapping mSwizzle {};
+
+    // needed to create views but only for sampler ext
+    VulkanPlatform* mPlatform = nullptr;
 };
 
 } // namespace filament::backend

@@ -117,6 +117,12 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
         }
     };
 
+    backend::SamplerMetaData getConstantSamplerData(backend::descriptor_binding_t binding) {
+        const auto& slot = mFELayout.bindings[binding];
+        assert_invariant(slot.externalSamplerDataIndex != backend::EXTERNAL_SAMPLER_DATA_INDEX_UNUSED);
+        return mFELayout.externalSamplerData[slot.externalSamplerDataIndex];
+    }
+
     VulkanDescriptorSetLayout(DescriptorSetLayout const& layout);
 
     ~VulkanDescriptorSetLayout() = default;
@@ -129,6 +135,7 @@ struct VulkanDescriptorSetLayout : public HwDescriptorSetLayout, fvkmemory::Reso
 
 private:
     VkDescriptorSetLayout mVkLayout = VK_NULL_HANDLE;
+    DescriptorSetLayout mFELayout;
 };
 
 struct VulkanDescriptorSet : public HwDescriptorSet, fvkmemory::Resource {
@@ -138,13 +145,15 @@ public:
     using OnRecycle = std::function<void(VulkanDescriptorSet*)>;
 
     VulkanDescriptorSet(VkDescriptorSet rawSet,
+            VulkanDescriptorSetLayout* layout,
             fvkutils::UniformBufferBitmask const& dynamicUboMask,
             uint8_t uniqueDynamicUboCount,
             OnRecycle&& onRecycleFn)
         : vkSet(rawSet),
           dynamicUboMask(dynamicUboMask),
           uniqueDynamicUboCount(uniqueDynamicUboCount),
-          mOnRecycleFn(std::move(onRecycleFn)) {}
+          mOnRecycleFn(std::move(onRecycleFn)),
+          mLayout(layout){}
 
     ~VulkanDescriptorSet() {
         if (mOnRecycleFn) {
@@ -160,6 +169,8 @@ public:
         return &mOffsets;
     }
 
+    VulkanDescriptorSetLayout* getLayout() noexcept  { return mLayout; }
+
     void acquire(fvkmemory::resource_ptr<VulkanTexture> texture);
     void acquire(fvkmemory::resource_ptr<VulkanBufferObject> buffer);
 
@@ -171,6 +182,8 @@ private:
     backend::DescriptorSetOffsetArray mOffsets;
     std::vector<fvkmemory::resource_ptr<fvkmemory::Resource>> mResources;
     OnRecycle mOnRecycleFn;
+
+    VulkanDescriptorSetLayout* mLayout;
 };
 
 using PushConstantNameArray = utils::FixedCapacityVector<char const*>;

@@ -22,6 +22,7 @@
 
 #include <DataReshaper.h>
 #include <backend/DriverEnums.h>
+#include <backend/platforms/VulkanPlatform.h>
 #include <private/backend/BackendUtils.h>
 
 #include <utils/Panic.h>
@@ -156,12 +157,13 @@ uint8_t getLayerCountFromDepth(uint32_t const depth) {
 VulkanTextureState::VulkanTextureState(VkDevice device, VmaAllocator allocator,
         VulkanCommands* commands, VulkanStagePool& stagePool, VkFormat format,
         VkImageViewType viewType, uint8_t levels, uint8_t layerCount, VulkanLayout defaultLayout,
-        bool isProtected)
+        bool isProtected, uint32_t externalFormat)
     : mVkFormat(format),
       mViewType(viewType),
       mFullViewRange{fvkutils::getImageAspect(format), 0, levels, 0, layerCount},
       mDefaultLayout(defaultLayout),
       mIsProtected(isProtected),
+      mExternalSampler(externalFormat),
       mStagePool(stagePool),
       mDevice(device),
       mAllocator(allocator),
@@ -169,18 +171,20 @@ VulkanTextureState::VulkanTextureState(VkDevice device, VmaAllocator allocator,
       mIsTransientAttachment(false) {}
 
 // Constructor for internally passed VkImage
-VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator,
+VulkanTexture::VulkanTexture(VkDevice device, VmaAllocator allocator, VulkanPlatform* platform,
         fvkmemory::ResourceManager* resourceManager, VulkanCommands* commands, VkImage image,
-        VkDeviceMemory memory, VkFormat format, uint8_t samples, uint32_t width,
+        VkDeviceMemory memory, VkFormat format, uint32_t internalFormat, uint8_t samples, uint32_t width,
         uint32_t height, uint32_t depth, TextureUsage tusage, VulkanStagePool& stagePool)
     : HwTexture(getSamplerTypeFromDepth(depth), 1, samples, width, height, depth, TextureFormat::UNUSED,
               tusage),
       mState(fvkmemory::resource_ptr<VulkanTextureState>::construct(resourceManager, device,
               allocator, commands, stagePool, format, fvkutils::getViewType(SamplerType::SAMPLER_2D),
-              /*mipLevels=*/1, getLayerCountFromDepth(depth), getDefaultLayoutImpl(tusage), any(usage & TextureUsage::PROTECTED))) {
+              /*mipLevels=*/1, getLayerCountFromDepth(depth), getDefaultLayoutImpl(tusage),
+              any(usage & TextureUsage::PROTECTED), internalFormat)) {
     mState->mTextureImage = image;
     mState->mTextureImageMemory = memory;
     mPrimaryViewRange = mState->mFullViewRange;
+    mPlatform = platform;
 }
 
 // Constructor for user facing texture
@@ -193,7 +197,8 @@ VulkanTexture::VulkanTexture(VkDevice device, VkPhysicalDevice physicalDevice,
       mState(fvkmemory::resource_ptr<VulkanTextureState>::construct(resourceManager, device,
               allocator, commands, stagePool, fvkutils::getVkFormat(tformat),
               fvkutils::getViewType(target), levels, getLayerCount(target, depth),
-              VulkanLayout::UNDEFINED, any(usage & TextureUsage::PROTECTED))) {
+              VulkanLayout::UNDEFINED, any(usage & TextureUsage::PROTECTED),
+              EXTERNAL_SAMPLER_FORMAT_INVALID)) {
     // Create an appropriately-sized device-only VkImage, but do not fill it yet.
     VkImageCreateInfo imageInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -563,18 +568,25 @@ VkImageView VulkanTexture::getImageView(VkImageSubresourceRange range, VkImageVi
     if (iter != mState->mCachedImageViews.end()) {
         return iter->second;
     }
-    VkImageViewCreateInfo viewInfo = {
-        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = 0,
-        .image = mState->mTextureImage,
-        .viewType = viewType,
-        .format = mState->mVkFormat,
-        .components = swizzle,
-        .subresourceRange = range,
-    };
+
     VkImageView imageView;
-    vkCreateImageView(mState->mDevice, &viewInfo, VKALLOC, &imageView);
+    if (isExternalSampler()) {
+        imageView = mPlatform->createExternalImageView(getExternalFormatSamplerChroma(),
+                getExternalFormat(),
+                mState->mTextureImage, range, viewType, swizzle);
+    } else {
+        VkImageViewCreateInfo viewInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .image = mState->mTextureImage,
+            .viewType = viewType,
+            .format = mState->mVkFormat,
+            .components = swizzle,
+            .subresourceRange = range,
+        };
+        vkCreateImageView(mState->mDevice, &viewInfo, VKALLOC, &imageView);
+    }
     mState->mCachedImageViews.emplace(key, imageView);
     return imageView;
 }

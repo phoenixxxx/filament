@@ -77,16 +77,17 @@ void VulkanSwapChain::update() {
     }
     for (auto const color: bundle.colors) {
         auto colorTexture = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager,
-                device, mAllocator, mResourceManager, mCommands, color, VK_NULL_HANDLE,
-                bundle.colorFormat, 1, bundle.extent.width, bundle.extent.height, bundle.layerCount, colorUsage,
+                device, mAllocator, nullptr, mResourceManager, mCommands, color, VK_NULL_HANDLE,
+                bundle.colorFormat, backend::EXTERNAL_SAMPLER_FORMAT_INVALID, 1, bundle.extent.width,
+                bundle.extent.height, bundle.layerCount, colorUsage,
                 mStagePool);
         mColors.push_back(colorTexture);
     }
 
-    mDepth = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager, device,
-        mAllocator, mResourceManager, mCommands, bundle.depth, VK_NULL_HANDLE,
-        bundle.depthFormat, 1, bundle.extent.width, bundle.extent.height, bundle.layerCount, depthUsage,
-        mStagePool);
+    mDepth = fvkmemory::resource_ptr<VulkanTexture>::construct(mResourceManager, device, mAllocator,
+            nullptr, mResourceManager, mCommands, bundle.depth, VK_NULL_HANDLE, bundle.depthFormat,
+            backend::EXTERNAL_SAMPLER_FORMAT_INVALID, 1, bundle.extent.width, bundle.extent.height,
+            bundle.layerCount, depthUsage, mStagePool);
 
     mExtent = bundle.extent;
     mLayerCount = bundle.layerCount;

@@ -129,6 +129,8 @@ static constexpr size_t CONFIG_SAMPLER_BINDING_COUNT = 4;   // This is guarantee
 static constexpr uint8_t EXTERNAL_SAMPLER_DATA_INDEX_UNUSED =
         uint8_t(-1);// Case where the descriptor set binding isnt using any external sampler state
                      // and therefore doesn't have a valid entry.
+static constexpr uint8_t EXTERNAL_SAMPLER_FORMAT_INVALID =
+        uint32_t(0);// Invalid external format
 
 /**
  * Defines the backend's feature levels.
@@ -1112,18 +1114,29 @@ static_assert(sizeof(SamplerYcbcrConversion) == 4);
 static_assert(sizeof(SamplerYcbcrConversion) <= sizeof(uint64_t),
         "SamplerYcbcrConversion must be no more than 64 bits");
 
-struct ExternalSamplerDatum {
-    ExternalSamplerDatum(SamplerYcbcrConversion ycbcr, SamplerParams spm, uint32_t extFmt)
+struct SamplerMetaData {
+    SamplerMetaData()
+        : YcbcrConversion({}),
+          samplerParams({}),
+          externalFormat(EXTERNAL_SAMPLER_FORMAT_INVALID) {}
+    SamplerMetaData(SamplerParams spm)
+        : YcbcrConversion({}),
+          samplerParams(spm),
+          externalFormat(EXTERNAL_SAMPLER_FORMAT_INVALID) {}
+    SamplerMetaData(uint32_t extFmt)
+        : YcbcrConversion({}),
+          samplerParams({}),
+          externalFormat(extFmt) {}
+    SamplerMetaData(SamplerYcbcrConversion ycbcr, SamplerParams spm, uint32_t extFmt)
         : YcbcrConversion(ycbcr),
           samplerParams(spm),
           externalFormat(extFmt) {}
-    bool operator==(ExternalSamplerDatum const& rhs) const {
+    bool operator==(SamplerMetaData const& rhs) const {
         return (YcbcrConversion == rhs.YcbcrConversion && samplerParams == rhs.samplerParams &&
                 externalFormat == rhs.externalFormat);
     }
     struct EqualTo {
-        bool operator()(const ExternalSamplerDatum& lhs,
-                const ExternalSamplerDatum& rhs) const noexcept {
+        bool operator()(const SamplerMetaData& lhs, const SamplerMetaData& rhs) const noexcept {
             return (lhs.YcbcrConversion == rhs.YcbcrConversion &&
                 lhs.samplerParams == rhs.samplerParams &&
                 lhs.externalFormat == rhs.externalFormat);
@@ -1134,11 +1147,11 @@ struct ExternalSamplerDatum {
     uint32_t externalFormat;
 };
 // No implicit padding allowed due to it being a hash key.
-static_assert(sizeof(ExternalSamplerDatum) == 12);
+static_assert(sizeof(SamplerMetaData) == 12);
 
 struct DescriptorSetLayout {
     utils::FixedCapacityVector<DescriptorSetLayoutBinding> bindings;
-    utils::FixedCapacityVector<ExternalSamplerDatum> externalSamplerData;
+    utils::FixedCapacityVector<SamplerMetaData> externalSamplerData;
 };
 
 //! blending equation function

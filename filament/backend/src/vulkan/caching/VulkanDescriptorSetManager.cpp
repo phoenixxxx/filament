@@ -482,6 +482,7 @@ fvkmemory::resource_ptr<VulkanDescriptorSet> VulkanDescriptorSetManager::createS
     auto const& count = layout->count;
     auto const vklayout = layout->getVkLayout();
     return fvkmemory::resource_ptr<VulkanDescriptorSet>::make(mResourceManager, handle, vkSet,
+            layout.get(),
             layout->bitmask.dynamicUbo, layout->count.dynamicUbo,
             [vkSet, count, vklayout, this](VulkanDescriptorSet*) {
                 // Note that mDescriptorPool could be gone due to terminate (when the backend shuts
