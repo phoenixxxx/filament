@@ -563,7 +563,9 @@ VkImageView VulkanTexture::getViewForType(VkImageSubresourceRange const& range, 
 
 VkImageView VulkanTexture::getImageView(VkImageSubresourceRange range, VkImageViewType viewType,
         VkComponentMapping swizzle) {
-    VulkanTextureState::ImageViewKey const key{ range, viewType, swizzle };
+    VulkanTextureState::ImageViewKey const key{ range, viewType, swizzle,
+        SamplerMetaData(getExternalFormatSamplerChroma(), getExternalFormatSamplerParams(),
+                getExternalFormat()) };
     auto iter = mState->mCachedImageViews.find(key);
     if (iter != mState->mCachedImageViews.end()) {
         return iter->second;
