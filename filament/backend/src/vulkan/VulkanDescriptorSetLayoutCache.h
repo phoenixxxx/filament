@@ -42,7 +42,8 @@ public:
     void terminate() noexcept;
 
     fvkmemory::resource_ptr<VulkanDescriptorSetLayout> createLayout(
-            Handle<HwDescriptorSetLayout> handle, backend::DescriptorSetLayout&& info);
+            Handle<HwDescriptorSetLayout> handle, backend::DescriptorSetLayout&& info,
+            class VulkanSamplerCache& cache);
 
 private:
     VkDevice mDevice;

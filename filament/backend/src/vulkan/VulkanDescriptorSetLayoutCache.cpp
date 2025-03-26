@@ -18,6 +18,8 @@
 
 #include "VulkanHandles.h"
 
+#include "VulkanSamplerCache.h"
+
 namespace filament::backend {
 
 namespace {
@@ -74,7 +76,8 @@ void VulkanDescriptorSetLayoutCache::terminate() noexcept {
 }
 
 fvkmemory::resource_ptr<VulkanDescriptorSetLayout> VulkanDescriptorSetLayoutCache::createLayout(
-        Handle<HwDescriptorSetLayout> handle, backend::DescriptorSetLayout&& info) {
+        Handle<HwDescriptorSetLayout> handle, backend::DescriptorSetLayout&& info,
+        VulkanSamplerCache& cache) {
     auto layout = fvkmemory::resource_ptr<VulkanDescriptorSetLayout>::make(mResourceManager, handle,
             info);
     VkDescriptorSetLayout vklayout = VK_NULL_HANDLE;
@@ -83,6 +86,7 @@ fvkmemory::resource_ptr<VulkanDescriptorSetLayout> VulkanDescriptorSetLayoutCach
         vklayout = itr->second;
     } else {
         VkDescriptorSetLayoutBinding toBind[VulkanDescriptorSetLayout::MAX_BINDINGS];
+
         uint32_t count = 0;
         count += appendBindings(&toBind[count], VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
                 bitmasks.dynamicUbo);
@@ -91,6 +95,19 @@ fvkmemory::resource_ptr<VulkanDescriptorSetLayout> VulkanDescriptorSetLayoutCach
                 bitmasks.sampler);
         count += appendBindings(&toBind[count], VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
                 bitmasks.inputAttachment);
+
+        VkSampler immutables[VulkanDescriptorSetLayout::MAX_BINDINGS];
+        for (const auto& binding: info.bindings) {
+            if (binding.type == DescriptorType::SAMPLER_EXTERNAL) {
+                // Get or create the external sampler given this particular combo
+                assert_invariant(
+                        binding.externalSamplerDataIndex != EXTERNAL_SAMPLER_DATA_INDEX_UNUSED);
+                const auto& data = info.externalSamplerData[binding.externalSamplerDataIndex];
+                immutables[binding.binding] = cache.getSampler(data);
+                toBind[binding.binding].pImmutableSamplers = &immutables[binding.binding];
+                assert_invariant(toBind[binding.binding].descriptorCount == 1);
+            }
+        }
 
         assert_invariant(count != 0 && "Need at least one binding for descriptor set layout.");
         VkDescriptorSetLayoutCreateInfo dlinfo = {
