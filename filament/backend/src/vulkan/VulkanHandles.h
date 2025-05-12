@@ -431,7 +431,7 @@ struct VulkanIndexBuffer : public HwIndexBuffer, fvkmemory::Resource {
     VulkanIndexBuffer(VmaAllocator allocator, VulkanStagePool& stagePool, uint8_t elementSize,
             uint32_t indexCount)
         : HwIndexBuffer(elementSize, indexCount),
-          buffer(allocator, stagePool, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, elementSize * indexCount),
+          buffer(allocator, &stagePool, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, elementSize * indexCount),
           indexType(elementSize == 2 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32) {}
 
     VulkanBuffer buffer;

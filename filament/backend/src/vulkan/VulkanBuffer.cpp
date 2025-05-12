@@ -16,6 +16,7 @@
 
 #include "VulkanBuffer.h"
 #include "VulkanMemory.h"
+#include "VulkanConstants.h"
 
 #include <utils/Panic.h>
 
@@ -23,7 +24,7 @@ using namespace bluevk;
 
 namespace filament::backend {
 
-VulkanBuffer::VulkanBuffer(VmaAllocator allocator, VulkanStagePool& stagePool,
+VulkanBuffer::VulkanBuffer(VmaAllocator allocator, VulkanStagePool* stagePool,
         VkBufferUsageFlags usage, uint32_t numBytes)
     : mAllocator(allocator),
       mStagePool(stagePool),
@@ -45,18 +46,57 @@ VulkanBuffer::VulkanBuffer(VmaAllocator allocator, VulkanStagePool& stagePool,
     vmaCreateBuffer(mAllocator, &bufferInfo, &allocInfo, &mGpuBuffer, &mGpuMemory, nullptr);
 }
 
+VulkanBuffer::VulkanBuffer(VkDevice device, VkBufferUsageFlags usage, uint32_t numBytes)
+    : mAllocator(nullptr),
+      mDevice(device),
+      mUsage(usage),
+      mUpdatedOffset(0),
+      mUpdatedBytes(0) {
+    // for now make sure that only 1 bit is set in usage
+    // (because loadFromCpu() assumes that somewhat)
+    assert_invariant(usage && !(usage & (usage - 1)));
+
+    //  Store exterior allocation states
+    mDeviceMemory = VK_NULL_HANDLE;
+    mMemoryOffset = 0;
+    mNumBytes = numBytes;
+
+    // Create the VkBuffer.
+    VkBufferCreateInfo bufferInfo{ .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = numBytes,
+        .usage = usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT };
+
+    VkResult res = vkCreateBuffer(device, &bufferInfo, VKALLOC, &mGpuBuffer);
+}
+
 VulkanBuffer::~VulkanBuffer() {
     vmaDestroyBuffer(mAllocator, mGpuBuffer, mGpuMemory);
 }
 
+void VulkanBuffer::bindMemory(const VmaAllocationInfo* info, uint32_t offset, uint32_t size) {
+    mDeviceMemory = info->deviceMemory;
+    mMemoryOffset = static_cast<uint32_t>(offset);
+    // Assert the offset is aligned to the alignment requirements
+    assert_invariant(mNumBytes < size);
+    VkResult res = vkBindBufferMemory(mDevice, mGpuBuffer, mDeviceMemory, mMemoryOffset);
+}
 void VulkanBuffer::loadFromCpu(VkCommandBuffer cmdbuf, const void* cpuData, uint32_t byteOffset,
         uint32_t numBytes) {
-    VulkanStage const* stage = mStagePool.acquireStage(numBytes);
-    void* mapped;
-    vmaMapMemory(mAllocator, stage->memory, &mapped);
-    memcpy(mapped, cpuData, numBytes);
-    vmaUnmapMemory(mAllocator, stage->memory);
-    vmaFlushAllocation(mAllocator, stage->memory, byteOffset, numBytes);
+    VkBuffer srcBuffer = VK_NULL_HANDLE;
+    if (mStagePool) {
+        VulkanStage const* stage = mStagePool->acquireStage(numBytes);
+        srcBuffer = stage->buffer;
+        void* mapped;
+        vmaMapMemory(mAllocator, stage->memory, &mapped);
+        memcpy(mapped, cpuData, numBytes);
+        vmaUnmapMemory(mAllocator, stage->memory);
+        vmaFlushAllocation(mAllocator, stage->memory, byteOffset, numBytes);
+    } else {
+        void* mapped;
+        VkResult res = vkMapMemory(mDevice, mDeviceMemory, mMemoryOffset + byteOffset, mNumBytes, 0,
+                &mapped);
+        memcpy(mapped, cpuData, numBytes);
+    }
 
     // If there was a previous update, then we need to make sure the following write is properly
     // synced with the previous read.
@@ -93,7 +133,7 @@ void VulkanBuffer::loadFromCpu(VkCommandBuffer cmdbuf, const void* cpuData, uint
             .dstOffset = byteOffset,
             .size = numBytes,
     };
-    vkCmdCopyBuffer(cmdbuf, stage->buffer, mGpuBuffer, 1, &region);
+    vkCmdCopyBuffer(cmdbuf, srcBuffer, mGpuBuffer, 1, &region);
 
 	mUpdatedOffset = byteOffset;
     mUpdatedBytes = numBytes;
