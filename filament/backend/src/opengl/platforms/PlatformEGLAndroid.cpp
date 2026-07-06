@@ -457,8 +457,7 @@ void PlatformEGLAndroid::destroySwapChain(SwapChain* swapChain) noexcept {
 }
 
 Platform::ExternalImageHandle PlatformEGLAndroid::createExternalImage(
-        AHardwareBuffer const* buffer, bool const sRGB,
-        const CropRect& crop) noexcept {
+        AHardwareBuffer const* buffer, bool const sRGB) noexcept {
     if (__builtin_available(android 26, *)) {
         auto* const p = new (std::nothrow) ExternalImageEGLAndroid;
         auto const hardwareBuffer = const_cast<AHardwareBuffer*>(buffer);
