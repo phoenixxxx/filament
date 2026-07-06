@@ -187,7 +187,7 @@ VulkanPlatformAndroid::~VulkanPlatformAndroid() noexcept {
 }
 
 Platform::ExternalImageHandle VulkanPlatformAndroid::createExternalImage(
-        AHardwareBuffer const* buffer, bool sRGB) noexcept {
+        AHardwareBuffer const* buffer, bool sRGB, const CropRect& crop) noexcept {
     if (__builtin_available(android 26, *)) {
         auto bufferImpl = const_cast<AHardwareBuffer*>(buffer);
         AHardwareBuffer_acquire(bufferImpl);
@@ -198,6 +198,7 @@ Platform::ExternalImageHandle VulkanPlatformAndroid::createExternalImage(
         auto* const p = new (std::nothrow) ExternalImageVulkanAndroid;
         p->aHardwareBuffer = const_cast<AHardwareBuffer*>(buffer);
         p->sRGB = sRGB;
+        p->cropRect = crop;
         return Platform::ExternalImageHandle{ p };
     }
 
@@ -221,6 +222,10 @@ bool VulkanPlatformAndroid::copyExternalImageToMemoryYUV(
     auto const* fvkExternalImage = static_cast<ExternalImageVulkanAndroid const*>(image.get());
     AHardwareBuffer* buffer = fvkExternalImage->aHardwareBuffer;
     if (!buffer) return false;
+
+    // Todo:
+    // Take into account the offset crop buffer
+    // fvkExternalImage->cropRect
 
     uint32_t const yPlaneSize = w * h;
     uint32_t const chromaWidth = w / 2;

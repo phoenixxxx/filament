@@ -241,12 +241,13 @@ uint8_t reduceSampleCount(uint8_t sampleCount, VkSampleCountFlags mask) {
 }
 
 filament::backend::Platform::ExternalImageHandle createExternalImageFromRaw(
-        filament::backend::VulkanPlatform* platform, void* image, bool sRGB) {
+        filament::backend::VulkanPlatform* platform, void* image, bool sRGB, 
+        const filament::backend::VulkanPlatform::CropRect& crop) {
 
 #if defined(__ANDROID__)
     if (__builtin_available(android 26, *)) {
         return static_cast<filament::backend::VulkanPlatformAndroid*>(platform)
-                ->createExternalImage(reinterpret_cast<AHardwareBuffer const*>(image), sRGB);
+                ->createExternalImage(reinterpret_cast<AHardwareBuffer const*>(image), sRGB, crop);
     }
 #endif
     return {};

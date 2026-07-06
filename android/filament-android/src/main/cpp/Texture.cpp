@@ -379,7 +379,7 @@ Java_com_google_android_filament_Texture_nSetExternalImageByAHB(JNIEnv *env, jcl
             }
 #endif
             auto* vulkanPlatform = (VulkanPlatformAndroid*) platform;
-            auto ref = vulkanPlatform->createExternalImage(nativeBuffer, false);
+            auto ref = vulkanPlatform->createExternalImage(nativeBuffer, false, {0,0,-1,-1});
             texture->setExternalImage(*engine, ref);
         }
 #endif // FILAMENT_SUPPORTS_VULKAN

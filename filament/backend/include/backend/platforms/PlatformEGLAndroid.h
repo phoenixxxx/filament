@@ -52,7 +52,8 @@ public:
     /**
      * Creates an ExternalImage from a EGLImageKHR
      */
-    ExternalImageHandle UTILS_PUBLIC createExternalImage(AHardwareBuffer const* buffer, bool sRGB) noexcept;
+    ExternalImageHandle UTILS_PUBLIC createExternalImage(AHardwareBuffer const* buffer, bool sRGB, 
+        const CropRect& crop) noexcept;
 
     struct UTILS_PUBLIC ExternalImageDescAndroid {
         uint32_t width;      // Texture width

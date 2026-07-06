@@ -344,6 +344,13 @@ public:
      */
     VkQueue getProtectedGraphicsQueue() const noexcept;
 
+    struct CropRect {
+        int32_t top;
+        int32_t left;
+        int32_t bottom;
+        int32_t right;
+    };
+
     struct ExternalImageMetadata {
         /**
          * The Filament texture format.

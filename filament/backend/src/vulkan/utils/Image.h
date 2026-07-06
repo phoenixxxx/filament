@@ -109,7 +109,8 @@ uint8_t reduceSampleCount(uint8_t sampleCount, VkSampleCountFlags mask);
 
 Platform::ExternalImageHandle createExternalImageFromRaw(filament::backend::VulkanPlatform* platform,
         void* image,
-        bool sRGB);
+        bool sRGB,
+        const filament::backend::VulkanPlatform::CropRect& crop);
 } // namespace fvkutils
 
 } // namespace filament::backend
