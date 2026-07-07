@@ -26,6 +26,9 @@
 #include <mutex>
 
 #ifdef __ANDROID__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
 #include <pthread.h>
 #endif
 
