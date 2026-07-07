@@ -26,10 +26,8 @@
 #include <mutex>
 
 #ifdef __ANDROID__
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
 #include <pthread.h>
+extern "C" int pthread_getname_np(pthread_t, char*, size_t) __attribute__((weak));
 #endif
 
 
