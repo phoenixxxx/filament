@@ -223,13 +223,14 @@ bool VulkanPlatformAndroid::copyExternalImageToMemoryYUV(
     AHardwareBuffer* buffer = fvkExternalImage->aHardwareBuffer;
     if (!buffer) return false;
 
-    // Todo:
     // Take into account the offset crop buffer
-    // fvkExternalImage->cropRect
+    uint32_t const cropLeft = fvkExternalImage->cropRect.left;
+    uint32_t const cropTop = fvkExternalImage->cropRect.top;
+    uint32_t const cropRight = fvkExternalImage->cropRect.right;
+    uint32_t const cropBottom = fvkExternalImage->cropRect.bottom;
+    uint32_t const cropWidth = cropRight - cropLeft;
 
     uint32_t const yPlaneSize = w * h;
-    uint32_t const chromaWidth = w / 2;
-    uint32_t const chromaHeight = h / 2;
 
     uint8_t* dstBytes = static_cast<uint8_t*>(dstData);
     uint8_t* yDst = dstBytes;
@@ -244,11 +245,13 @@ bool VulkanPlatformAndroid::copyExternalImageToMemoryYUV(
         AHardwareBuffer_Planes planes;
         if (AHardwareBuffer_lockPlanes(buffer, AHARDWAREBUFFER_USAGE_CPU_READ_OFTEN, -1, nullptr, &planes) == 0) {
 
-            // Copy luminance
+            // Copy luminance 1:1 mapped with crop rect
             uint8_t* ySrc = static_cast<uint8_t*>(planes.planes[0].data);
             uint32_t yRowStride = planes.planes[0].rowStride;
-            for (uint32_t row = 0; row < h; ++row) {
-                memcpy(yDst + (row * w), ySrc + (row * yRowStride), w);
+            uint32_t yPixelStride = planes.planes[0].pixelStride;
+            
+            for (uint32_t row = cropTop; row < cropBottom; ++row) {
+                memcpy(yDst + (row * w) + cropLeft, ySrc + (row * yRowStride) + (cropLeft * yPixelStride), cropWidth);
             }
 
             // Encode packed Cb/Cr based on NV12 spec
@@ -260,12 +263,17 @@ bool VulkanPlatformAndroid::copyExternalImageToMemoryYUV(
             uint32_t vRowStride = planes.planes[2].rowStride;
             uint32_t vPixelStride = planes.planes[2].pixelStride;
 
-            for (uint32_t row = 0; row < chromaHeight; ++row) {
-                uint8_t* uvRowDst = uvDst + (row * w);
+            uint32_t const cropChromaLeft = cropLeft / 2;
+            uint32_t const cropChromaTop = cropTop / 2;
+            uint32_t const cropChromaRight = cropRight / 2;
+            uint32_t const cropChromaBottom = cropBottom / 2;
+
+            for (uint32_t row = cropChromaTop; row < cropChromaBottom; ++row) {
+                uint8_t* uvRowDst = uvDst + (row * w); // Note: destination row stride is w (width / 2 * 2 bytes per pixel)
                 uint8_t* uRowSrc = uSrc + (row * uRowStride);
                 uint8_t* vRowSrc = vSrc + (row * vRowStride);
 
-                for (uint32_t col = 0; col < chromaWidth; ++col) {
+                for (uint32_t col = cropChromaLeft; col < cropChromaRight; ++col) {
                     uvRowDst[col * 2 + 0] = uRowSrc[col * uPixelStride];
                     uvRowDst[col * 2 + 1] = vRowSrc[col * vPixelStride];
                 }
@@ -290,8 +298,18 @@ VulkanPlatform::ExternalImageMetadata VulkanPlatformAndroid::extractExternalImag
         AHardwareBuffer_Desc bufferDesc;
         AHardwareBuffer_describe(buffer, &bufferDesc);
 
-        metadata.width = bufferDesc.width;
-        metadata.height = bufferDesc.height;
+        uint32_t width = bufferDesc.width;
+        uint32_t height = bufferDesc.height;
+        // In the case where this is from a CPU decoded video, there may be a cropp masks.
+        // Meaning a logical area within the allocation where the content is. In that case
+        // we need to allocate a crop rectangle sized area for the texture. Note that 
+        // copyExternalImageToMemoryYUV takes into account the crop rectangle in the copy
+        if(fvkExternalImage->cropRect.right > 0 && fvkExternalImage->cropRect.bottom > 0) {
+            width = fvkExternalImage->cropRect.right - fvkExternalImage->cropRect.left;
+            height = fvkExternalImage->cropRect.bottom - fvkExternalImage->cropRect.top;
+        }
+        metadata.width = width;
+        metadata.height = height;
         metadata.layers = bufferDesc.layers;
         metadata.samples = VK_SAMPLE_COUNT_1_BIT;
         metadata.isStagingRequired = isSoftwareDecodedYUV(bufferDesc.format, bufferDesc.usage);

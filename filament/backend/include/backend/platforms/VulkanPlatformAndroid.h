@@ -102,7 +102,7 @@ private:
     struct ExternalImageVulkanAndroid : public ExternalImage {
         AHardwareBuffer* aHardwareBuffer = nullptr;
         bool sRGB = false;
-        CropRect cropRect;
+        CropRect cropRect = {0,0,-1,-1};
 
     protected:
         ~ExternalImageVulkanAndroid() override;
