@@ -27,6 +27,9 @@
 #include <utils/compiler.h>
 #include <utils/Log.h>
 
+#include <cstring>
+#include <memory>
+
 using namespace bluevk;
 
 namespace filament::backend {
@@ -42,7 +45,7 @@ TaskHandler::TaskHandler()
 void TaskHandler::post(WorkloadFunc&& workload, OnCompleteFunc&& oncomplete) {
     assert_invariant(!mShouldStop);
     {
-        std::unique_lock<std::mutex> lock(mTaskQueueMutex);
+        utils::UniqueLock lock(mTaskQueueMutex);
         mTaskQueue.push(std::make_pair(std::move(workload), std::move(oncomplete)));
     }
     mHasTaskCondition.notify_one();
@@ -51,25 +54,25 @@ void TaskHandler::post(WorkloadFunc&& workload, OnCompleteFunc&& oncomplete) {
 void TaskHandler::drain() {
     assert_invariant(!mShouldStop);
 
-    std::mutex syncPointMutex;
-    std::condition_variable syncCondition;
+    utils::Mutex syncPointMutex;
+    utils::Condition syncCondition;
     bool done = false;
     post([] {},
             [&syncPointMutex, &syncCondition, &done] {
                 {
-                    std::unique_lock<std::mutex> lock(syncPointMutex);
+                    utils::UniqueLock lock(syncPointMutex);
                     done = true;
                     syncCondition.notify_one();
                 }
             });
 
-    std::unique_lock<std::mutex> lock(syncPointMutex);
+    utils::UniqueLock lock(syncPointMutex);
     syncCondition.wait(lock, [&done] { return done; });
 }
 
 void TaskHandler::shutdown() {
     {
-        std::unique_lock<std::mutex> lock(mTaskQueueMutex);
+        utils::UniqueLock lock(mTaskQueueMutex);
         mShouldStop = true;
     }
     mHasTaskCondition.notify_one();
@@ -80,7 +83,7 @@ void TaskHandler::shutdown() {
 
 void TaskHandler::loop() {
     while (true) {
-        std::unique_lock<std::mutex> lock(mTaskQueueMutex);
+        utils::UniqueLock lock(mTaskQueueMutex);
         mHasTaskCondition.wait(lock, [this] { return !mTaskQueue.empty() || mShouldStop; });
         if (mShouldStop) {
             break;
@@ -94,7 +97,7 @@ void TaskHandler::loop() {
 
     // Clean-up: we still need to call oncomplete for clients to do clean-up.
     while (true) {
-        std::unique_lock<std::mutex> lock(mTaskQueueMutex);
+        utils::UniqueLock lock(mTaskQueueMutex);
         if (mTaskQueue.empty()) {
             break;
         }
@@ -255,14 +258,16 @@ void VulkanReadPixels::run(fvkmemory::resource_ptr<VulkanTexture> srcTexture, ui
     uint32_t memoryTypeIndex = selectMemoryFunc(memReqs.memoryTypeBits,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
                     | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+    bool hostCachedStaging = true;
 
     // If VK_MEMORY_PROPERTY_HOST_CACHED_BIT is not supported, we try only
     // HOST_VISIBLE+HOST_COHERENT.  HOST_CACHED helps a lot with readpixels performance.
     if (memoryTypeIndex >= VK_MAX_MEMORY_TYPES) {
         memoryTypeIndex = selectMemoryFunc(memReqs.memoryTypeBits,
                 VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        FVK_LOGW
-                << "readPixels is slow because VK_MEMORY_PROPERTY_HOST_CACHED_BIT is not available";
+        hostCachedStaging = false;
+        FVK_LOGW << "readPixels: VK_MEMORY_PROPERTY_HOST_CACHED_BIT is not available; "
+                    "reshaping through a cached bounce copy";
     }
 
     FILAMENT_CHECK_POSTCONDITION(memoryTypeIndex < VK_MAX_MEMORY_TYPES)
@@ -362,10 +367,14 @@ void VulkanReadPixels::run(fvkmemory::resource_ptr<VulkanTexture> srcTexture, ui
     };
     auto waitFenceFunc = [device, width, height, swizzle, stagingBuffer, stagingMemory, cmdpool,
                                  cmdbuffer, pUserBuffer, bpp, componentType, componentCount,
-                                 fence = readCompleteFence]() mutable {
+                                 hostCachedStaging, fence = readCompleteFence]() mutable {
         VkResult status = vkWaitForFences(device, 1, &fence, VK_TRUE, UINT64_MAX);
         if (status != VK_SUCCESS) {
             FVK_LOGE << "Failed to wait for readPixels fence";
+            vkDestroyBuffer(device, stagingBuffer, VKALLOC);
+            vkFreeMemory(device, stagingMemory, VKALLOC);
+            vkDestroyFence(device, fence, VKALLOC);
+            vkFreeCommandBuffers(device, cmdpool, 1, &cmdbuffer);
             return;
         }
 
@@ -379,8 +388,21 @@ void VulkanReadPixels::run(fvkmemory::resource_ptr<VulkanTexture> srcTexture, ui
         // pixels). So we can simply ask DataReshaper to read width * height elements with standard
         // row pitch!
         int const rowPitch = width * bpp;
-        if (!DataReshaper::reshapeImage(&p, componentType, componentCount, srcPixels, rowPitch,
-                    static_cast<int>(width), static_cast<int>(height), swizzle)) {
+
+        // Without HOST_CACHED the mapping is uncached, and DataReshaper's per-texel loop turns
+        // every 2-4 byte load into its own memory transaction. Bounce the mapped range into
+        // cached heap memory with one bulk memcpy (which the CPU can issue as wide, streaming
+        // loads) and reshape from there; reshape only ever reads the first sample plane.
+        uint8_t const* reshapeSrc = srcPixels;
+        std::unique_ptr<uint8_t[]> cachedCopy;
+        if (!hostCachedStaging) {
+            size_t const size = size_t(rowPitch) * height;
+            cachedCopy = std::make_unique_for_overwrite<uint8_t[]>(size);
+            memcpy(cachedCopy.get(), srcPixels, size);
+            reshapeSrc = cachedCopy.get();
+        }
+        if (!DataReshaper::reshapeImage(&p, componentType, componentCount, reshapeSrc,
+                    rowPitch, static_cast<int>(width), static_cast<int>(height), swizzle)) {
             FVK_LOGE << "Unsupported PixelDataFormat or PixelDataType";
         }
 

@@ -35,13 +35,13 @@
 #include <filament/Engine.h>
 #include <filament/FrameHistoryStream.h>
 #include <filament/Frustum.h>
-#include <filament/Material.h>
 #include <filament/ToneMapper.h>
 
 #include <private/backend/BackendUtils.h>
 
 #include <backend/DriverEnums.h>
 
+#include <utils/NameComponentManager.h>
 #include <utils/Slice.h>
 
 #include <math/half.h>
@@ -55,10 +55,8 @@
 #include <gtest/gtest.h>
 
 #include <array>
-#include <cmath>
+#include <chrono>
 #include <cstddef>
-#include <cstdint>
-#include <cstring>
 #include <functional>
 #include <iostream>
 #include <limits>
@@ -201,8 +199,8 @@ TEST(FilamentTest, SkinningMath) {
 }
 
 TEST(FilamentTest, TransformManagerSimple) {
-    FTransformManager tcm;
     EntityManager& em = EntityManager::get();
+    FTransformManager tcm(em);
     Entity const root = em.create();
     tcm.create(root);
 
@@ -218,9 +216,9 @@ TEST(FilamentTest, TransformManagerSimple) {
 }
 
 TEST(FilamentTest, TransformManager) {
-    FTransformManager tcm;
-    tcm.setAccurateTranslationsEnabled(true);
     EntityManager& em = EntityManager::get();
+    FTransformManager tcm(em);
+    tcm.setAccurateTranslationsEnabled(true);
     std::array<Entity, 3> entities;
     em.create(entities.size(), entities.data());
 
@@ -340,8 +338,8 @@ TEST(FilamentTest, TransformManager) {
 }
 
 TEST(FilamentTest, TransformManagerChildrenIteration) {
-    FTransformManager tcm;
     EntityManager& em = EntityManager::get();
+    FTransformManager tcm(em);
 
     std::array<Entity, 5> entities;
     em.create(entities.size(), entities.data());
@@ -445,34 +443,34 @@ TEST(FilamentTest, RenderableManagerCallback) {
     auto& rm = engine->getRenderableManager();
     EntityManager& em = EntityManager::get();
     Entity const e = em.create();
-    
+
     int callbackCount = 0;
     auto callback = [&](Slice<const Entity> entities) {
         callbackCount += entities.size();
     };
-    
+
     rm.registerChangeCallback(&rm, std::move(callback));
-    
+
     // Test addComponent
     RenderableManager::Builder(1).boundingBox({{0,0,0},{1,1,1}}).build(*engine, e);
     rm.flushNotifications();
     EXPECT_GT(callbackCount, 0);
-    
+
     callbackCount = 0;
-    
+
     // Test modify
     auto const instance = rm.getInstance(e);
     rm.setLayerMask(instance, 0x2);
     rm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     callbackCount = 0;
-    
+
     // Test removeComponent
     rm.destroy(e, engine->getDriverApi());
     rm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     rm.unregisterChangeCallback(&rm);
     em.destroy(e);
     Engine::destroy((Engine**)&engine);
@@ -483,34 +481,34 @@ TEST(FilamentTest, LightManagerCallback) {
     auto& lm = engine->getLightManager();
     EntityManager& em = EntityManager::get();
     Entity const e = em.create();
-    
+
     int callbackCount = 0;
     auto callback = [&](Slice<const Entity> entities) {
         callbackCount += entities.size();
     };
-    
+
     lm.registerChangeCallback(&lm, std::move(callback));
-    
+
     // Test addComponent
     LightManager::Builder(LightManager::Type::POINT).build(*engine, e);
     lm.flushNotifications();
     EXPECT_GT(callbackCount, 0);
-    
+
     callbackCount = 0;
-    
+
     // Test modify
     auto const instance = lm.getInstance(e);
     lm.setIntensity(instance, 2000.0f, FLightManager::IntensityUnit::LUMEN_LUX);
     lm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     callbackCount = 0;
-    
+
     // Test removeComponent
     lm.destroy(e);
     lm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     lm.unregisterChangeCallback(&lm);
     em.destroy(e);
     Engine::destroy((Engine**)&engine);
@@ -521,40 +519,40 @@ TEST(FilamentTest, TransformManagerCallback) {
     auto& tcm = engine->getTransformManager();
     EntityManager& em = EntityManager::get();
     Entity const e = em.create();
-    
+
     int callbackCount = 0;
     auto callback = [&](Slice<const Entity> entities) {
         callbackCount += entities.size();
     };
-    
+
     tcm.registerChangeCallback(&tcm, std::move(callback));
-    
+
     // Test addComponent
     tcm.create(e);
     tcm.flushNotifications();
     EXPECT_GT(callbackCount, 0);
-    
+
     callbackCount = 0;
-    
+
     // Test modify without transaction
     auto const instance = tcm.getInstance(e);
     constexpr auto t = mat4f::translation(float3{ 1, 2, 3 });
     tcm.setTransform(instance, t);
     tcm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     callbackCount = 0;
-    
+
     // Test transaction
     tcm.openLocalTransformTransaction();
     tcm.setTransform(instance, mat4f::translation(float3{ 4, 5, 6 }));
     tcm.flushNotifications();
     EXPECT_EQ(callbackCount, 0);
-    
+
     tcm.commitLocalTransformTransaction();
     tcm.flushNotifications();
     EXPECT_EQ(callbackCount, 1);
-    
+
     tcm.unregisterChangeCallback(&tcm);
     tcm.destroy(e);
     em.destroy(e);
@@ -921,8 +919,6 @@ TEST(FilamentTest, FroxelData) {
     FEngine* engine = downcast(Engine::Builder().backend(Engine::Backend::NOOP).build());
 
     LinearAllocatorArena arena("FRenderer: per-frame allocator", 3 * 1024 * 1024);
-    ArenaScope scope(arena);
-
 
     // view-port size is chosen so that we fit exactly a integer # of froxels horizontally
     // (unfortunately there is no way to guarantee it as it depends on the max # of froxel
@@ -933,7 +929,7 @@ TEST(FilamentTest, FroxelData) {
 
     Froxelizer froxelData(*engine);
     froxelData.setOptions(5, 100);
-    froxelData.prepare(engine->getDriverApi(), scope, vp, p, 0.1, 100, {1,1,0,0});
+    froxelData.prepare(engine->getDriverApi(), arena, vp, p, 0.1, 100, {1,1,0,0});
 
     Froxel f = froxelData.getFroxelAt(0,0,0);
 
@@ -982,8 +978,8 @@ TEST(FilamentTest, FroxelData) {
     float2 const spotParams = float2{lcm.getCosOuterSquared(li), lcm.getSinInverse(li)};
 
     FScene::LightSoa lights;
-    lights.push_back({}, {}, {}, {}, {}, {}, {}, {}, {});   // first one is always skipped
-    lights.push_back(float4{ 0, 0, -5, 1 }, {}, {}, {}, e, spotParams, 1, {}, {});
+    lights.push_back();   // first one is always skipped
+    lights.push_back(float4{ 0, 0, -5, 1 }, 0.0f, 0.0f, -5.0f, 1.0f, float3{}, float3{}, double2{}, e, spotParams, Culler::result_type(1), float2{}, FScene::ShadowInfo{});
 
     {
         froxelData.froxelizeLights(*engine, {}, lights);
@@ -1000,6 +996,10 @@ TEST(FilamentTest, FroxelData) {
     {
         // light doesn't cross any froxel near or far plane
         lights.elementAt<FScene::POSITION_RADIUS>(1) = float4{ 0, 0, -3, 1 };
+        lights.elementAt<FScene::POSITION_X>(1) = 0;
+        lights.elementAt<FScene::POSITION_Y>(1) = 0;
+        lights.elementAt<FScene::POSITION_Z>(1) = -3;
+        lights.elementAt<FScene::RADIUS>(1) = 1;
 
         auto pos = lights.elementAt<FScene::POSITION_RADIUS>(1);
         EXPECT_TRUE(pos == float4( 0, 0, -3, 1 ));
@@ -1111,7 +1111,7 @@ TEST(FilamentTest, GridSnapping) {
     // Test case 6: Automatic grid size (Perspective)
     view->setGridSize(0.0); // Enable auto
     static_cast<Camera*>(camera)->setProjection(90.0, 1.0, 0.1, 100.0, Camera::Fov::VERTICAL); // Set far plane to 100
-    
+
     // FOV 90, aspect 1.0 -> baseScale = 2.0. Width at far plane = 200.
     // Auto grid size should be 2.0 * 100 * 0.1 = 20.
     camera->setModelMatrix(mat4::translation(double3{0.0, 0.0, 0.0}));
@@ -1764,6 +1764,140 @@ TEST(FilamentTest, FrameHistoryStreamTest) {
     engine->destroy(swapChain);
     engine->destroy(renderer);
     Engine::destroy(&engine);
+}
+
+TEST(FilamentTest, ECREpochBasedReclamationManagers) {
+    Engine* engine = Engine::Builder().backend(Engine::Backend::NOOP).build();
+    auto& em = engine->getEntityManager();
+    auto& tcm = engine->getTransformManager();
+    auto& lcm = engine->getLightManager();
+    auto& rcm = engine->getRenderableManager();
+
+    NameComponentManager ncm(em);
+
+    Entity e1 = em.create();
+    Entity e2 = em.create();
+
+    // Add components
+    tcm.create(e1, 0, mat4f());
+    LightManager::Builder(LightManager::Type::POINT).build(*engine, e1);
+    RenderableManager::Builder(1).boundingBox({{0,0,0},{1,1,1}}).build(*engine, e1);
+    ncm.addComponent(e1);
+    engine->createCamera(e1);
+
+    tcm.create(e2, 0, mat4f());
+    LightManager::Builder(LightManager::Type::POINT).build(*engine, e2);
+    RenderableManager::Builder(1).boundingBox({{0,0,0},{1,1,1}}).build(*engine, e2);
+    ncm.addComponent(e2);
+    engine->createCamera(e2);
+
+    EXPECT_TRUE(tcm.hasComponent(e1));
+    EXPECT_TRUE(lcm.hasComponent(e1));
+    EXPECT_TRUE(rcm.hasComponent(e1));
+    EXPECT_TRUE(ncm.hasComponent(e1));
+    EXPECT_NE(engine->getCameraComponent(e1), nullptr);
+
+    EXPECT_TRUE(tcm.hasComponent(e2));
+    EXPECT_TRUE(lcm.hasComponent(e2));
+    EXPECT_TRUE(rcm.hasComponent(e2));
+    EXPECT_TRUE(ncm.hasComponent(e2));
+    EXPECT_NE(engine->getCameraComponent(e2), nullptr);
+
+    em.advanceEpoch();
+
+    em.destroy(e1);
+
+    EXPECT_FALSE(em.isAlive(e1));
+    EXPECT_TRUE(em.isAlive(e2));
+
+    em.advanceEpoch();
+
+    downcast(engine)->gc();
+    ncm.gc();
+
+    EXPECT_FALSE(tcm.hasComponent(e1));
+    EXPECT_FALSE(lcm.hasComponent(e1));
+    EXPECT_FALSE(rcm.hasComponent(e1));
+    EXPECT_FALSE(ncm.hasComponent(e1));
+    EXPECT_EQ(engine->getCameraComponent(e1), nullptr);
+
+    EXPECT_TRUE(tcm.hasComponent(e2));
+    EXPECT_TRUE(lcm.hasComponent(e2));
+    EXPECT_TRUE(rcm.hasComponent(e2));
+    EXPECT_TRUE(ncm.hasComponent(e2));
+    EXPECT_NE(engine->getCameraComponent(e2), nullptr);
+
+    em.destroy(e2);
+    downcast(engine)->gc();
+    ncm.gc();
+
+    Engine::destroy(&engine);
+}
+
+
+
+TEST(FilamentTest, MultipleDirectionalLights) {
+    Engine::Config config{};
+    config.enableMultipleDirectionalLights = true;
+    FEngine* engine = downcast(Engine::Builder()
+            .backend(backend::Backend::NOOP)
+            .config(&config)
+            .build());
+    FScene* scene = downcast(engine->createScene());
+    auto& em = engine->getEntityManager();
+    FLightManager& lcm = engine->getLightManager();
+
+    // create more directional lights than can be supported, with decreasing intensity,
+    // in a random-ish direction each
+    constexpr size_t EXTRA_COUNT = CONFIG_MAX_EXTRA_DIRECTIONAL_LIGHTS;
+    constexpr size_t LIGHT_COUNT = FScene::DIRECTIONAL_LIGHTS_COUNT + EXTRA_COUNT + 2;
+    Entity entities[LIGHT_COUNT];
+    float3 directions[LIGHT_COUNT];
+    for (size_t i = 0; i < LIGHT_COUNT; i++) {
+        entities[i] = em.create();
+        directions[i] = normalize(float3{ float(i + 1), 1.0f, -0.5f });
+        LightManager::Builder(LightManager::Type::DIRECTIONAL)
+                .intensity(1000.0f * float(LIGHT_COUNT - i))
+                .direction(directions[i])
+                .build(*engine, entities[i]);
+        static_cast<Scene*>(scene)->addEntity(entities[i]);
+    }
+
+    LinearAllocatorArena arena("MultipleDirectionalLights test arena", 3 * 1024 * 1024);
+    FScene::SceneCacheData cache;
+    scene->prepare(engine->getJobSystem(), arena, mat4{}, false, cache);
+
+    // the most intense directional light is the dominant one, at index 0 of the LightSoa
+    auto const& lightData = cache.lightData;
+    EXPECT_TRUE(lightData.elementAt<FScene::LIGHT_ENTITY>(0) == entities[0]);
+
+    // the next EXTRA_COUNT lights, by decreasing intensity, are the extra directional
+    // lights; the remaining ones are ignored
+    ASSERT_EQ(EXTRA_COUNT, cache.extraDirectionalLightCount);
+    for (size_t i = 0; i < EXTRA_COUNT; i++) {
+        size_t const entity = FScene::DIRECTIONAL_LIGHTS_COUNT + i;
+        EXPECT_TRUE(cache.extraDirectionalLightInstances[i] ==
+                lcm.getInstance(entities[entity]));
+        float3 const d = cache.extraDirectionalLightDirections[i];
+        EXPECT_NEAR(directions[entity].x, d.x, 1e-6f);
+        EXPECT_NEAR(directions[entity].y, d.y, 1e-6f);
+        EXPECT_NEAR(directions[entity].z, d.z, 1e-6f);
+    }
+
+    // with a single directional light there are no extras
+    for (size_t i = 1; i < LIGHT_COUNT; i++) {
+        static_cast<Scene*>(scene)->remove(entities[i]);
+    }
+    scene->prepare(engine->getJobSystem(), arena, mat4{}, false, cache);
+    EXPECT_TRUE(lightData.elementAt<FScene::LIGHT_ENTITY>(0) == entities[0]);
+    EXPECT_EQ(0u, cache.extraDirectionalLightCount);
+
+    engine->destroy(scene);
+    for (auto& e : entities) {
+        engine->destroy(e);
+        em.destroy(e);
+    }
+    Engine::destroy((Engine**)&engine);
 }
 
 int main(int argc, char** argv) {

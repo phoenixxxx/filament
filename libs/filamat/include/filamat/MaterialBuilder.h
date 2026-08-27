@@ -35,10 +35,10 @@
 
 #include <atomic>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
-#include <optional>
 
 #include <stddef.h>
 #include <stdint.h>
@@ -837,6 +837,8 @@ public:
     filament::UserVariantFilterMask getVariantFilter() const { return mVariantFilter; }
 
     FeatureLevel getFeatureLevel() const noexcept { return mFeatureLevel; }
+
+    uint32_t getApiLevel() const noexcept { return mApiLevel; }
     /// @endcond
 
     struct Attribute {

@@ -24,10 +24,8 @@
 #include <utils/JobSystem.h>
 #include <utils/Mutex.h>
 
-#include <condition_variable>
 #include <limits>
 #include <memory>
-#include <mutex>
 #include <queue>
 #include <thread>
 #include <unordered_map>
@@ -139,6 +137,10 @@ public:
     /**
      * Cancels a job by its ID.
      *
+     * The canceled job is destroyed on the calling thread, without the queue's lock held, so it is
+     * safe for the job (or anything it captured) to call back into this queue while being
+     * destroyed.
+     *
      * @param jobId The job ID to cancel.
      * @return true if the job was found and cancelled, false otherwise.
      */
@@ -156,8 +158,8 @@ private:
 
     JobId genNextJobId() noexcept UTILS_REQUIRES(mQueueMutex);
 
-    std::mutex mQueueMutex;
-    std::condition_variable mQueueCondition;
+    utils::Mutex mQueueMutex;
+    utils::Condition mQueueCondition;
     std::unordered_map<JobId, Job> mJobsMap UTILS_GUARDED_BY(mQueueMutex);
     std::queue<JobId> mJobOrder UTILS_GUARDED_BY(mQueueMutex);
     JobId mNextJobId UTILS_GUARDED_BY(mQueueMutex) = 0;
